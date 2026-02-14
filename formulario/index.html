@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Encuesta IHSS – Entrega de Medicamentos a Domicilio | San Pedro Sula</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --verde-clinico: #0D9488;
+            --verde-clinico-oscuro: #047857;
+            --azul-turquesa: #0891B2;
+            --azul-turquesa-claro: #22D3EE;
+            --fondo: #F0FDFA;
+            --tarjeta: #FFFFFF;
+            --texto: #134E4A;
+            --texto-suave: #115E59;
+        }
+        body {
+            font-family: 'Segoe UI', 'Verdana', sans-serif;
+            background: linear-gradient(180deg, #F0FDFA 0%, #CCFBF1 50%, #E0F2FE 100%);
+            color: var(--texto);
+            font-size: 1.05rem;
+        }
+        .hidden-view { display: none !important; }
+
+        /* Tarjetas de opción: grandes y legibles para tercera edad */
+        .option-card {
+            cursor: pointer;
+            transition: all 0.25s ease;
+            border: 3px solid #E2E8F0;
+            background: var(--tarjeta);
+            min-height: 4rem;
+            font-size: 1.1rem;
+        }
+        .option-card:hover {
+            border-color: var(--azul-turquesa);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px -5px rgba(6, 182, 212, 0.2);
+        }
+        input:checked + .option-card {
+            background: linear-gradient(135deg, #CCFBF1 0%, #CFFAFE 100%);
+            border-color: var(--verde-clinico);
+            box-shadow: 0 4px 14px rgba(13, 148, 136, 0.25);
+        }
+        input:checked + .option-card .icon-box {
+            background: var(--verde-clinico);
+            color: white;
+            border-color: var(--verde-clinico);
+        }
+
+        /* Escala 1-5: botones grandes */
+        .scale-btn {
+            width: 3rem;
+            height: 3rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            border: 3px solid #E2E8F0;
+            background: white;
+            color: var(--texto);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .scale-btn:hover { border-color: var(--azul-turquesa); transform: scale(1.05); }
+        .scale-btn.active {
+            background: var(--verde-clinico);
+            border-color: var(--verde-clinico);
+            color: white;
+        }
+
+        .rating-star {
+            font-size: 2.75rem;
+            color: #CBD5E1;
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+        .rating-star:hover { transform: scale(1.15); }
+        .rating-star.active { color: #FBBF24; }
+        .rating-star:active { transform: scale(1.2); }
+
+        .loader {
+            border: 4px solid #E2E8F0;
+            border-top: 4px solid var(--verde-clinico);
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .editor-item { border-left: 4px solid #CBD5E1; padding-left: 1rem; }
+        .editor-item:focus-within { border-color: var(--verde-clinico); }
+        #responseModal { display: none; }
+        #responseModal.show { display: flex !important; }
+    </style>
+</head>
+<body class="pb-24 min-h-screen">
+
+    <!-- Navbar: logos grandes y bien visibles -->
+    <nav class="bg-white border-b border-teal-100 sticky top-0 z-50 shadow-sm px-4 py-2 flex justify-between items-center">
+        <div class="flex items-center gap-4 min-h-[4.5rem]">
+            <img src="./logoihssatucasa.png" alt="IHSS en tu casa" class="h-14 md:h-16 w-auto object-contain flex-shrink-0" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            <div class="w-14 h-14 rounded-xl bg-teal-100 flex items-center justify-center text-teal-700 hidden flex-shrink-0" style="display:none;"><i class="fas fa-home text-2xl"></i></div>
+            <img src="./ihsslogonuevo.png" alt="IHSS" class="h-12 md:h-14 w-auto object-contain flex-shrink-0" onerror="this.style.display='none'">
+            <div class="min-w-0">
+                <h1 class="font-bold text-teal-800 text-base md:text-lg truncate">Encuesta IHSS</h1>
+                <p class="text-xs text-teal-600" id="navSubtitle">Entrega a domicilio · San Pedro Sula</p>
+            </div>
+        </div>
+        <div id="adminControls" class="hidden-view flex gap-2">
+            <button onclick="changeRoute('dashboard')" class="text-xs bg-teal-100 text-teal-800 px-3 py-2 rounded-lg font-bold hover:bg-teal-200">DASHBOARD</button>
+            <button onclick="changeRoute('editor')" class="text-xs bg-cyan-100 text-cyan-800 px-3 py-2 rounded-lg font-bold hover:bg-cyan-200">EDITOR</button>
+            <button onclick="logout()" class="text-xs bg-red-100 text-red-700 px-3 py-2 rounded-lg font-bold">SALIR</button>
+        </div>
+    </nav>
+
+    <!-- LOADING -->
+    <div id="globalLoader" class="fixed inset-0 bg-white z-[60] flex flex-col items-center justify-center">
+        <div class="loader w-10 h-10 mb-4"></div>
+        <p class="text-teal-600 font-bold">Cargando encuesta...</p>
+    </div>
+
+    <!-- ================= VISTA PACIENTE ================= -->
+    <div id="view-patient" class="hidden-view">
+        <div class="bg-gradient-to-br from-teal-600 to-cyan-600 text-white pt-8 pb-14 px-6 text-center rounded-b-[2rem] shadow-xl mb-4">
+            <div class="flex flex-wrap justify-center items-center gap-6 md:gap-10 mb-5">
+                <img src="./logoihssatucasa.png" alt="IHSS en tu casa" class="h-24 md:h-32 w-auto max-w-[180px] md:max-w-[220px] object-contain drop-shadow-lg" onerror="this.style.display='none'">
+                <img src="./ihsslogonuevo.png" alt="IHSS - Logo oficial" class="h-20 md:h-28 w-auto max-w-[140px] md:max-w-[180px] object-contain drop-shadow-lg" onerror="this.style.display='none'">
+            </div>
+            <h2 class="text-2xl md:text-3xl font-bold mb-1" id="formTitle">Encuesta sobre el servicio de entrega de medicamentos a domicilio</h2>
+            <p class="text-teal-100 text-base" id="formDesc">IHSS – San Pedro Sula</p>
+        </div>
+
+        <!-- Personaje del proyecto -->
+        <div class="flex justify-center -mt-2 mb-2">
+            <img src="./gifdashboard.gif" alt="Personaje del proyecto" class="h-20 md:h-24 object-contain rounded-xl" onerror="this.style.display='none'">
+        </div>
+
+        <form id="surveyForm" class="max-w-3xl mx-auto px-4 -mt-2 space-y-6">
+            <div id="dynamicContainer" class="space-y-6"></div>
+
+            <button type="submit" id="btnSubmit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-5 rounded-2xl shadow-xl flex justify-center items-center gap-2 text-xl transition">
+                <span>ENVIAR RESPUESTAS</span>
+                <div id="spinner" class="loader hidden"></div>
+            </button>
+            <p class="text-center text-teal-600 text-sm mt-4">IHSS San Pedro Sula ©</p>
+        </form>
+    </div>
+
+    <!-- ================= VISTA ADMIN: EDITOR ================= -->
+    <div id="view-editor" class="hidden-view p-4 bg-teal-50 min-h-screen">
+        <div class="max-w-4xl mx-auto">
+            <div class="bg-white p-6 rounded-xl shadow mb-6 border-l-4 border-teal-500">
+                <h2 class="text-xl font-bold mb-4">Configuración de la Encuesta</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <input type="text" id="editTitle" placeholder="Título" class="w-full border p-2 rounded">
+                    <input type="text" id="editDesc" placeholder="Descripción" class="w-full border p-2 rounded">
+                </div>
+                <button onclick="addNewQuestion()" class="bg-teal-100 text-teal-700 px-4 py-2 rounded font-bold hover:bg-teal-200 text-sm"><i class="fas fa-plus mr-1"></i> Agregar Pregunta</button>
+            </div>
+            <div id="editorList" class="space-y-4"></div>
+            <div class="sticky bottom-4 bg-white p-4 rounded-xl shadow-2xl border border-teal-200 mt-6 flex justify-between items-center z-40">
+                <p class="text-xs text-teal-600 font-bold uppercase">Cambios sin guardar</p>
+                <button onclick="saveConfiguration()" id="btnSaveConfig" class="bg-teal-700 text-white px-6 py-3 rounded-lg font-bold hover:bg-teal-800 shadow-lg">GUARDAR CAMBIOS</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= VISTA ADMIN: LOGIN ================= -->
+    <div id="view-login" class="hidden-view min-h-screen flex items-center justify-center p-4 bg-teal-50">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm text-center border border-teal-100">
+            <div class="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4 text-teal-600 text-2xl"><i class="fas fa-user-shield"></i></div>
+            <h2 class="font-bold text-teal-800 text-2xl mb-2">Acceso Admin</h2>
+            <p class="text-sm text-teal-500 mb-6">Panel de Control</p>
+            <input type="text" id="adminUser" placeholder="Usuario" class="w-full p-3 border border-teal-200 rounded-lg mb-3 text-center bg-teal-50">
+            <input type="password" id="adminPass" placeholder="Contraseña" class="w-full p-3 border border-teal-200 rounded-lg mb-4 text-center bg-teal-50">
+            <button onclick="attemptLogin()" class="w-full bg-teal-600 text-white font-bold py-3 rounded-lg hover:bg-teal-700 transition">Ingresar</button>
+            <p id="loginError" class="text-red-500 text-sm hidden mt-3 font-bold">Credenciales incorrectas</p>
+            <button onclick="changeRoute('pacientes')" class="mt-6 text-sm text-teal-500 underline">Volver a Encuesta</button>
+        </div>
+    </div>
+
+    <!-- ================= VISTA DASHBOARD ================= -->
+    <div id="view-dashboard" class="hidden-view p-4 min-h-screen bg-teal-50">
+        <div class="max-w-5xl mx-auto">
+            <div class="bg-teal-700 text-white p-6 rounded-xl mb-6 flex justify-between items-center">
+                <div>
+                    <h2 class="font-bold text-xl">Resultados</h2>
+                    <p class="text-sm text-teal-200">Datos en tiempo real</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-2xl font-bold" id="dashTotal">0</p>
+                    <p class="text-xs uppercase">Respuestas</p>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow mb-6 border border-teal-200">
+                <p class="text-xs font-bold text-teal-600 uppercase mb-2">Enlace para Pacientes</p>
+                <div class="flex flex-wrap gap-2 items-center">
+                    <div class="flex bg-teal-50 rounded-lg p-1 flex-1 min-w-0">
+                        <input type="text" id="publicLink" readonly class="bg-transparent w-full text-sm px-2 outline-none text-teal-700">
+                        <button onclick="copyLink()" class="bg-teal-600 text-white px-3 py-1 rounded text-xs font-bold">COPIAR</button>
+                    </div>
+                    <button type="button" onclick="downloadExcel()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2">
+                        <i class="fas fa-file-excel"></i> Descargar Excel
+                    </button>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-teal-100 text-teal-800 font-bold"><tr id="dashHeaders"></tr></thead>
+                        <tbody id="dashBody" class="divide-y divide-teal-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: detalle de una respuesta -->
+    <div id="responseModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/50" onclick="if(event.target===this) closeResponseModal()">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col" onclick="event.stopPropagation()">
+            <div class="bg-teal-600 text-white px-6 py-4 flex justify-between items-center">
+                <h3 class="font-bold text-lg">Respuesta del formulario</h3>
+                <button type="button" onclick="closeResponseModal()" class="text-white hover:bg-teal-500 rounded-full p-2 transition" aria-label="Cerrar">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div id="responseModalBody" class="p-6 overflow-y-auto flex-1 text-left space-y-4">
+                <!-- Se llena por JS -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+    <script>
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyARj9M9llgMyYCu7nc2UxL2Z5N5fW5ttcY",
+            authDomain: "formulario-94d94.firebaseapp.com",
+            projectId: "formulario-94d94",
+            storageBucket: "formulario-94d94.firebasestorage.app",
+            messagingSenderId: "723989461612",
+            appId: "1:723989461612:web:1f0bb69233dd435af2b649"
+        };
+        firebase.initializeApp(FIREBASE_CONFIG);
+        const db = firebase.firestore();
+
+        const CREDENTIALS = { user: 'admin', pass: 'admin' };
+        const COL_RESPUESTAS = 'respuestas';
+        const COL_CONFIG = 'configuracion';
+        const DOC_CONFIG = 'encuesta';
+
+        let surveyConfig = {
+            title: "Encuesta sobre el servicio de entrega de medicamentos a domicilio del IHSS – San Pedro Sula",
+            subtitle: "Satisfacción y conocimiento del programa",
+            questions: [
+                { id: "genero", type: "radio", label: "Género del beneficiario del programa", options: "Femenino,Masculino,Prefiero no responder", icon: "fas fa-venus-mars" },
+                { id: "edad", type: "select", label: "Rango de edad del beneficiario del programa", options: "Menos de 60 años,60 a 69 años,70 a 79 años,80 años o más", icon: "fas fa-calendar-alt" },
+                { id: "relacion", type: "select", label: "Relación del encuestado con el beneficiario", options: "Derechohabiente,Hijo/a,Familiar cercano,Cuidador/a", icon: "fas fa-users" },
+                { id: "es_derechohabiente", type: "yesno", label: "¿Usted o un familiar directo es derechohabiente del IHSS?", options: "Sí,No", icon: "fas fa-id-card" },
+                { id: "residencia", type: "yesno", label: "¿El beneficiario reside en San Pedro Sula?", options: "Sí, en San Pedro Sula,No, fuera de San Pedro Sula", icon: "fas fa-map-marker-alt" },
+                { id: "conoce", type: "select", label: "¿Conoce el servicio de entrega de medicamentos a domicilio que ofrece el IHSS?", options: "Sí, lo conozco,He escuchado de él,No lo conocía", icon: "fas fa-info-circle" },
+                { id: "claridad", type: "select", label: "¿Qué tan claro considera que es el programa para la población?", options: "Muy claro,Algo claro,Poco claro,Nada claro", icon: "fas fa-glasses" },
+                { id: "medio", type: "select", label: "¿Por qué medio se ha informado o le gustaría informarse sobre este programa?", options: "Atención presencial en el IHSS,Llamadas telefónicas,Redes sociales,Página web del IHSS,Recomendación de otra persona,No he recibido información", icon: "fas fa-bullhorn" },
+                { id: "canal_pref", type: "select", label: "¿Qué tipo de canal considera más efectivo para recibir información sobre este programa?", options: "Canales presenciales (ventanilla, personal del IHSS),Canales digitales (redes sociales, página web),Ambos", icon: "fas fa-mobile-alt" },
+                { id: "uso", type: "yesno", label: "¿Ha utilizado el servicio de entrega de medicamentos a domicilio del IHSS?", options: "Sí,No", icon: "fas fa-shipping-fast" },
+                { id: "razon_no", type: "radio", label: "Si su respuesta fue no, ¿Cuál considera que ha sido la principal razón?", options: "No conoce el proceso,Desconfianza,Prefiere retiro presencial,Otro", icon: "fas fa-question-circle", parent: "uso", parentVal: "No" },
+                { id: "calif_puntualidad", type: "stars", label: "¿Cómo califica la puntualidad en la entrega de los medicamentos? (1 = Muy malo | 5 = Muy bueno)", parent: "uso", parentVal: "Sí" },
+                { id: "calif_estado", type: "stars", label: "¿Cómo evalúa el estado en que recibe los medicamentos? (1 = Muy malo | 5 = Muy bueno)", parent: "uso", parentVal: "Sí" },
+                { id: "calif_info", type: "stars", label: "¿Qué tan clara considera la información brindada sobre el proceso de entrega? (1 = Muy malo | 5 = Muy bueno)", parent: "uso", parentVal: "Sí" },
+                { id: "calif_confianza", type: "stars", label: "¿Qué nivel de confianza le genera este servicio del IHSS? (1 = Muy malo | 5 = Muy bueno)", parent: "uso", parentVal: "Sí" },
+                { id: "prioridad", type: "select", label: "¿Qué aspecto considera prioritario para fortalecer el programa?", options: "Comunicación del programa,Acceso a la información,Seguimiento al usuario,Cobertura del programa", icon: "fas fa-chart-line" },
+                { id: "mejora_com", type: "yesno", label: "¿Considera que una mejor comunicación aumentaría el uso del programa?", options: "Sí,No", icon: "fas fa-comments" },
+                { id: "sugerencia", type: "text", label: "¿Qué sugerencia le daría al IHSS para mejorar la comunicación y el conocimiento del programa de entrega de medicamentos a domicilio?", icon: "fas fa-pen" }
+            ]
+        };
+        let surveyData = [];
+
+        window.onload = function() {
+            handleRouting();
+            window.addEventListener('hashchange', handleRouting);
+            loadApp();
+        };
+
+        function handleRouting() {
+            const hash = window.location.hash;
+            if (hash.includes('/admin')) {
+                showView('login');
+                document.getElementById('globalLoader').classList.add('hidden-view');
+            } else if (hash.includes('/dashboard') || hash.includes('/editor')) {
+                showView('login');
+                document.getElementById('globalLoader').classList.add('hidden-view');
+            } else {
+                showView('patient');
+            }
+        }
+
+        function changeRoute(route) {
+            if (route === 'pacientes') window.location.hash = '/pacientes';
+            else if (route === 'admin' || route === 'login') window.location.hash = '/admin';
+            else showView(route);
+        }
+
+        function loadApp() {
+            var isAdmin = window.location.hash.includes('admin');
+            if (!isAdmin) document.getElementById('globalLoader').classList.remove('hidden-view');
+            db.collection(COL_CONFIG).doc(DOC_CONFIG).get()
+                .then(function(doc) {
+                    if (doc.exists && doc.data().questions && doc.data().questions.length) {
+                        surveyConfig.title = doc.data().title || surveyConfig.title;
+                        surveyConfig.subtitle = doc.data().subtitle || surveyConfig.subtitle;
+                        surveyConfig.questions = doc.data().questions;
+                    }
+                    renderPatientView();
+                    document.getElementById('globalLoader').classList.add('hidden-view');
+                })
+                .catch(function() {
+                    renderPatientView();
+                    document.getElementById('globalLoader').classList.add('hidden-view');
+                });
+        }
+
+        function showView(id) {
+            ['patient', 'login', 'editor', 'dashboard'].forEach(v => document.getElementById('view-' + v).classList.add('hidden-view'));
+            document.getElementById('view-' + id).classList.remove('hidden-view');
+            if (id === 'patient' || id === 'login') document.getElementById('adminControls').classList.add('hidden-view');
+            else document.getElementById('adminControls').classList.remove('hidden-view');
+            if (id === 'editor') renderEditor();
+            if (id === 'dashboard') renderDashboard();
+        }
+
+        function renderPatientView() {
+            document.getElementById('formTitle').textContent = surveyConfig.title;
+            document.getElementById('formDesc').textContent = surveyConfig.subtitle;
+            document.getElementById('navSubtitle').textContent = surveyConfig.title;
+
+            const container = document.getElementById('dynamicContainer');
+            container.innerHTML = '';
+
+            surveyConfig.questions.forEach(q => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'bg-white p-6 rounded-2xl shadow-md border-2 border-teal-100 q-wrapper';
+                wrapper.dataset.id = q.id;
+                if (q.parent) wrapper.style.display = 'none';
+
+                const header = document.createElement('div');
+                header.className = "flex items-center gap-3 mb-4";
+                header.innerHTML = `
+                    <div class="bg-teal-100 text-teal-700 w-12 h-12 rounded-full flex items-center justify-center text-xl flex-shrink-0"><i class="${q.icon || 'fas fa-question'}"></i></div>
+                    <h3 class="font-bold text-teal-800 text-lg md:text-xl leading-tight">${q.label}</h3>
+                `;
+                wrapper.appendChild(header);
+
+                let inputHtml = '';
+                const opts = q.options ? q.options.split(',') : [];
+
+                if (q.type === 'radio' || q.type === 'yesno') {
+                    inputHtml = `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">`;
+                    opts.forEach(opt => {
+                        const val = opt.trim();
+                        inputHtml += `
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="${q.id}" value="${val}" class="peer hidden" onchange="checkConditions()">
+                                <div class="option-card p-5 rounded-xl flex items-center justify-center gap-3 h-full text-center">
+                                    <div class="icon-box w-10 h-10 rounded-full border-2 border-slate-200 flex items-center justify-center text-slate-500 flex-shrink-0"><i class="fas fa-check"></i></div>
+                                    <span class="font-bold text-teal-800">${val}</span>
+                                </div>
+                            </label>`;
+                    });
+                    inputHtml += `</div>`;
+                } else if (q.type === 'select') {
+                    inputHtml = `<select name="${q.id}" class="w-full p-4 bg-teal-50 border-2 border-teal-200 rounded-xl text-lg outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200" onchange="checkConditions()">
+                        <option value="">Seleccione una opción...</option>
+                        ${opts.map(o => `<option value="${o.trim()}">${o.trim()}</option>`).join('')}
+                    </select>`;
+                } else if (q.type === 'text') {
+                    inputHtml = `<textarea name="${q.id}" rows="4" class="w-full p-4 bg-teal-50 border-2 border-teal-200 rounded-xl outline-none focus:border-teal-500 text-lg" placeholder="Escriba aquí su sugerencia..."></textarea>`;
+                } else if (q.type === 'stars') {
+                    inputHtml = `<div class="flex justify-center gap-2 flex-wrap star-container" data-name="${q.id}">
+                        ${[1,2,3,4,5].map(i => `<i class="fas fa-star rating-star" onclick="rate('${q.id}', ${i}, this)" title="${i}"></i>`).join('')}
+                    </div>
+                    <p class="text-center text-teal-600 text-sm mt-2">1 = Muy malo &nbsp;|&nbsp; 5 = Muy bueno</p>
+                    <input type="hidden" name="${q.id}" id="input-${q.id}">`;
+                }
+
+                const body = document.createElement('div');
+                body.innerHTML = inputHtml;
+                wrapper.appendChild(body);
+                container.appendChild(wrapper);
+            });
+        }
+
+        function checkConditions() {
+            const formData = new FormData(document.getElementById('surveyForm'));
+            surveyConfig.questions.forEach(q => {
+                if (q.parent) {
+                    const parentVal = formData.get(q.parent);
+                    const wrapper = document.querySelector(`.q-wrapper[data-id="${q.id}"]`);
+                    if (wrapper) {
+                        if (parentVal === q.parentVal) {
+                            wrapper.style.display = 'block';
+                            wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        } else {
+                            wrapper.style.display = 'none';
+                        }
+                    }
+                }
+            });
+        }
+
+        function rate(id, val, el) {
+            document.getElementById('input-' + id).value = val;
+            const container = el.parentElement;
+            container.querySelectorAll('.rating-star').forEach((s, i) => {
+                if (i < val) s.classList.add('active');
+                else s.classList.remove('active');
+            });
+        }
+
+        document.getElementById('surveyForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var form = this;
+            var btn = document.getElementById('btnSubmit');
+            var spinner = document.getElementById('spinner');
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+            var formData = new FormData(form);
+            var data = { fecha: new Date().toISOString() };
+            surveyConfig.questions.forEach(function(q) {
+                var val = formData.get(q.id);
+                data[q.id] = (val != null && String(val).trim() !== '') ? String(val).trim() : '';
+            });
+            db.collection(COL_RESPUESTAS).add(data)
+                .then(function() {
+                    alert("¡Gracias! Sus respuestas se han enviado correctamente.");
+                    window.location.reload();
+                })
+                .catch(function(err) {
+                    btn.disabled = false;
+                    spinner.classList.add('hidden');
+                    alert("Error al guardar: " + (err.message || "Por favor intente nuevamente."));
+                });
+        });
+
+        function renderEditor() {
+            document.getElementById('editTitle').value = surveyConfig.title;
+            document.getElementById('editDesc').value = surveyConfig.subtitle;
+            const list = document.getElementById('editorList');
+            list.innerHTML = '';
+            surveyConfig.questions.forEach((q, idx) => {
+                const item = document.createElement('div');
+                item.className = "bg-white p-4 rounded-lg shadow border border-teal-200 editor-item";
+                item.innerHTML = `
+                    <div class="flex justify-between mb-2">
+                        <span class="font-bold text-teal-500 text-xs">PREGUNTA ${idx + 1} (${q.id})</span>
+                        <button onclick="deleteQuestion(${idx})" class="text-red-500 hover:text-red-700"><i class="fas fa-trash"></i></button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+                        <input type="text" class="border border-teal-200 p-2 rounded text-sm w-full" value="${q.label}" onchange="updateQ(${idx}, 'label', this.value)" placeholder="Pregunta">
+                        <select class="border border-teal-200 p-2 rounded text-sm w-full" onchange="updateQ(${idx}, 'type', this.value)">
+                            <option value="radio" ${q.type==='radio'?'selected':''}>Tarjetas</option>
+                            <option value="select" ${q.type==='select'?'selected':''}>Lista</option>
+                            <option value="yesno" ${q.type==='yesno'?'selected':''}>Sí/No</option>
+                            <option value="text" ${q.type==='text'?'selected':''}>Texto</option>
+                            <option value="stars" ${q.type==='stars'?'selected':''}>Estrellas</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <input type="text" class="border border-teal-200 p-2 rounded text-sm col-span-2" value="${(q.options || '').replace(/"/g,'&quot;')}" onchange="updateQ(${idx}, 'options', this.value)" placeholder="Opciones (separadas por coma)">
+                        <input type="text" class="border border-teal-200 p-2 rounded text-sm" value="${q.icon || ''}" onchange="updateQ(${idx}, 'icon', this.value)" placeholder="Icono">
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function updateQ(idx, field, val) { surveyConfig.questions[idx][field] = val; }
+        function deleteQuestion(idx) { if (confirm('¿Borrar esta pregunta?')) { surveyConfig.questions.splice(idx, 1); renderEditor(); } }
+        function addNewQuestion() {
+            surveyConfig.questions.push({ id: 'p' + Date.now(), type: 'text', label: 'Nueva Pregunta', options: '', icon: 'fas fa-question' });
+            renderEditor();
+        }
+
+        function saveConfiguration() {
+            var btn = document.getElementById('btnSaveConfig');
+            btn.textContent = "Guardando...";
+            btn.disabled = true;
+            surveyConfig.title = document.getElementById('editTitle').value;
+            surveyConfig.subtitle = document.getElementById('editDesc').value;
+            db.collection(COL_CONFIG).doc(DOC_CONFIG).set({
+                title: surveyConfig.title,
+                subtitle: surveyConfig.subtitle,
+                questions: surveyConfig.questions
+            }).then(function() {
+                alert("Configuración guardada.");
+                renderPatientView();
+            }).catch(function(err) {
+                alert("Error: " + (err.message || "No se pudo guardar."));
+            }).finally(function() {
+                btn.textContent = "GUARDAR CAMBIOS";
+                btn.disabled = false;
+            });
+        }
+
+        function renderDashboard() {
+            document.getElementById('publicLink').value = window.location.origin + window.location.pathname + '#/pacientes';
+            document.getElementById('dashTotal').textContent = '…';
+            var thead = document.getElementById('dashHeaders');
+            thead.innerHTML = '<th class="p-4">Fecha</th>';
+            surveyConfig.questions.forEach(function(q) {
+                thead.innerHTML += '<th class="p-4 whitespace-nowrap">' + q.label.substring(0, 30) + '…</th>';
+            });
+            var tbody = document.getElementById('dashBody');
+            tbody.innerHTML = '<tr><td colspan="' + (surveyConfig.questions.length + 1) + '" class="p-4 text-center text-teal-500">Cargando…</td></tr>';
+            db.collection(COL_RESPUESTAS).orderBy('fecha', 'desc').get()
+                .then(function(snapshot) {
+                    surveyData = [];
+                    snapshot.forEach(function(doc) {
+                        var d = doc.data();
+                        d.id = doc.id;
+                        surveyData.push(d);
+                    });
+                    document.getElementById('dashTotal').textContent = surveyData.length;
+                    tbody.innerHTML = '';
+                    surveyData.slice(0, 100).forEach(function(row, idx) {
+                        var tr = '<tr class="hover:bg-teal-50 border-b border-teal-100 cursor-pointer transition" onclick="openResponseModal(' + idx + ')" title="Ver detalle">';
+                        tr += '<td class="p-4 text-teal-600">' + (row.fecha ? new Date(row.fecha).toLocaleString('es-HN') : '-') + '</td>';
+                        surveyConfig.questions.forEach(function(q) {
+                            tr += '<td class="p-4">' + (row[q.id] || '-') + '</td>';
+                        });
+                        tr += '</tr>';
+                        tbody.innerHTML += tr;
+                    });
+                })
+                .catch(function(err) {
+                    tbody.innerHTML = '<tr><td colspan="' + (surveyConfig.questions.length + 1) + '" class="p-4 text-center text-red-500">Error al cargar: ' + (err.message || '') + '</td></tr>';
+                    document.getElementById('dashTotal').textContent = '0';
+                });
+        }
+
+        function escapeHtml(s) {
+            if (s == null) return '';
+            var t = String(s);
+            return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function openResponseModal(index) {
+            var row = surveyData[index];
+            if (!row) return;
+            var body = document.getElementById('responseModalBody');
+            var html = '<div class="border-b border-teal-100 pb-3 mb-3"><p class="text-xs font-bold text-teal-500 uppercase">Fecha de envío</p><p class="text-lg text-teal-800">' + escapeHtml(row.fecha ? new Date(row.fecha).toLocaleString('es-HN') : '-') + '</p></div>';
+            surveyConfig.questions.forEach(function(q) {
+                var val = row[q.id];
+                var text = (val != null && String(val).trim() !== '') ? String(val).trim() : '—';
+                html += '<div class="border-b border-teal-50 pb-3"><p class="text-sm font-bold text-teal-700 mb-1">' + escapeHtml(q.label) + '</p><p class="text-teal-800">' + escapeHtml(text) + '</p></div>';
+            });
+            body.innerHTML = html;
+            document.getElementById('responseModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeResponseModal() {
+            document.getElementById('responseModal').classList.remove('show');
+            document.body.style.overflow = '';
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.getElementById('responseModal').classList.contains('show')) closeResponseModal();
+        });
+
+        function downloadExcel() {
+            var headers = ['Fecha'].concat(surveyConfig.questions.map(function(q) { return q.label; }));
+            var keys = ['fecha'].concat(surveyConfig.questions.map(function(q) { return q.id; }));
+            var aoa = [headers];
+            surveyData.forEach(function(row) {
+                var r = [row.fecha ? new Date(row.fecha).toLocaleString('es-HN') : ''];
+                keys.slice(1).forEach(function(k) { r.push(row[k] != null ? String(row[k]) : ''); });
+                aoa.push(r);
+            });
+            var wb = XLSX.utils.book_new();
+            var ws = XLSX.utils.aoa_to_sheet(aoa);
+            var maxW = 12;
+            ws['!cols'] = keys.map(function() { return { wch: maxW }; });
+            XLSX.utils.book_append_sheet(wb, ws, 'Respuestas');
+            XLSX.writeFile(wb, 'encuesta_ihss_respuestas_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+        }
+
+        function attemptLogin() {
+            const u = document.getElementById('adminUser').value;
+            const p = document.getElementById('adminPass').value;
+            if (u === CREDENTIALS.user && p === CREDENTIALS.pass) {
+                showView('dashboard');
+                document.getElementById('globalLoader').classList.add('hidden-view');
+            } else {
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        }
+
+        function logout() { window.location.hash = '/pacientes'; window.location.reload(); }
+        function copyLink() { const t = document.getElementById("publicLink"); t.select(); document.execCommand("copy"); alert("Enlace copiado."); }
+    </script>
+</body>
+</html>
