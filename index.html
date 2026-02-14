@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bienvenido - IHSS A Domicilio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        medical: {
+                            deep: '#0f172a',    /* Azul Profundo */
+                            teal: '#14b8a6',    /* Turquesa */
+                            green: '#10b981',   /* Verde Clínico */
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f8fafc;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 20px 60px -15px rgba(15, 23, 42, 0.1);
+        }
+        .fade-in {
+            animation: fadeIn 1.5s ease-out forwards;
+            opacity: 0;
+        }
+        @keyframes fadeIn { to { opacity: 1; } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden relative">
+
+    <!-- Fondo decorativo sutil -->
+    <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-medical-green via-medical-teal to-medical-deep z-50"></div>
+    <div class="absolute -top-20 -right-20 w-96 h-96 bg-medical-teal/10 rounded-full blur-3xl"></div>
+    <div class="absolute -bottom-20 -left-20 w-96 h-96 bg-medical-green/10 rounded-full blur-3xl"></div>
+
+    <!-- Contenedor Principal Centrado -->
+    <main class="w-full max-w-4xl glass-panel rounded-3xl p-8 md:p-12 text-center fade-in relative z-10 flex flex-col items-center gap-8">
+        
+        <!-- 1. Título -->
+        <h1 class="text-4xl md:text-6xl font-extrabold text-medical-deep tracking-tight uppercase leading-none">
+            Portal IHSS <br>
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-medical-teal to-medical-green">
+                A Domicilio
+            </span>
+        </h1>
+
+        <!-- 2. GIF Principal (Enorme) -->
+        <div class="w-full relative group cursor-pointer" onclick="window.location.href='/login'">
+            <!-- Sombra del GIF -->
+            <div class="absolute -inset-1 bg-gradient-to-r from-medical-teal to-medical-deep rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+            
+            <!-- Marco y GIF -->
+            <div class="relative bg-white p-2 rounded-2xl ring-1 ring-slate-200">
+                <img 
+                    src="gifdashboard.gif" 
+                    alt="IHSS Dashboard" 
+                    class="w-full h-auto max-h-[60vh] object-cover rounded-xl"
+                    onerror="this.onerror=null; this.src='https://placehold.co/800x450/f8fafc/0f172a?text=VISUALIZACION+DEL+SISTEMA';"
+                >
+                
+                <!-- Capa hover sutil para indicar clic -->
+                <div class="absolute inset-0 bg-medical-deep/0 group-hover:bg-medical-deep/5 transition-colors rounded-xl flex items-center justify-center">
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Botón Discreto -->
+        <a href="/login" class="inline-flex items-center gap-2 text-medical-deep font-semibold border-b-2 border-transparent hover:border-medical-teal transition-all pb-1 hover:text-medical-teal">
+            Ingresar al Sistema
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
+        </a>
+
+    </main>
+
+</body>
+</html>
