@@ -280,28 +280,50 @@
         };
         let surveyData = [];
 
+        // Solo se accede al formulario/admin por: /formulario/#/pacientes y /formulario/#/admin
+        const BASE_FORMULARIO = '/formulario';
+        const RUTA_PACIENTES = '#/pacientes';
+        const RUTA_ADMIN = '#/admin';
+
+        function isFormularioPath() {
+            var p = (window.location.pathname || '').replace(/\/+$/, '') || '';
+            return p === BASE_FORMULARIO;
+        }
+
         window.onload = function() {
+            if (!isFormularioPath()) {
+                window.location.replace(window.location.origin + BASE_FORMULARIO + '/#/pacientes');
+                return;
+            }
             handleRouting();
             window.addEventListener('hashchange', handleRouting);
             loadApp();
         };
 
         function handleRouting() {
-            const hash = window.location.hash;
+            // Si no está en /formulario/, no entrar: redirigir al enlace correcto
+            if (!isFormularioPath()) {
+                window.location.replace(window.location.origin + BASE_FORMULARIO + '/' + RUTA_PACIENTES);
+                return;
+            }
+            const hash = (window.location.hash || '').trim().toLowerCase();
+            if (hash !== '#/pacientes' && !hash.includes('/admin')) {
+                window.location.replace(window.location.origin + BASE_FORMULARIO + '/' + RUTA_PACIENTES);
+                return;
+            }
             if (hash.includes('/admin')) {
                 showView('login');
                 document.getElementById('globalLoader').classList.add('hidden-view');
-            } else if (hash.includes('/dashboard') || hash.includes('/editor')) {
-                showView('login');
-                document.getElementById('globalLoader').classList.add('hidden-view');
-            } else {
+            } else if (hash === '#/pacientes') {
                 showView('patient');
+                document.getElementById('globalLoader').classList.add('hidden-view');
             }
         }
 
         function changeRoute(route) {
-            if (route === 'pacientes') window.location.hash = '/pacientes';
-            else if (route === 'admin' || route === 'login') window.location.hash = '/admin';
+            var base = window.location.origin + BASE_FORMULARIO + '/';
+            if (route === 'pacientes') window.location.href = base + '#/pacientes';
+            else if (route === 'admin' || route === 'login') window.location.href = base + '#/admin';
             else showView(route);
         }
 
@@ -507,7 +529,8 @@
         }
 
         function renderDashboard() {
-            document.getElementById('publicLink').value = window.location.origin + window.location.pathname + '#/pacientes';
+            // Enlace oficial: solo por ihssadomicilio.online/formulario/#/pacientes
+            document.getElementById('publicLink').value = window.location.origin + BASE_FORMULARIO + '/#/pacientes';
             document.getElementById('dashTotal').textContent = '…';
             var thead = document.getElementById('dashHeaders');
             thead.innerHTML = '<th class="p-4">Fecha</th>';
@@ -599,7 +622,7 @@
             }
         }
 
-        function logout() { window.location.hash = '/pacientes'; window.location.reload(); }
+        function logout() { window.location.href = window.location.origin + BASE_FORMULARIO + '/#/pacientes'; }
         function copyLink() { const t = document.getElementById("publicLink"); t.select(); document.execCommand("copy"); alert("Enlace copiado."); }
     </script>
 </body>
