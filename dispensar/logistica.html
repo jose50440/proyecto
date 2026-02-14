@@ -8,8 +8,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="IHSS A TU CASA">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="icon" href="./icons/ihss-logo.png" type="image/png">
-    <link rel="apple-touch-icon" href="./icons/ihss-logo.png">
+    <link rel="icon" href="./dispensar/icons/ihss-logo.png" type="image/png">
+    <link rel="apple-touch-icon" href="./dispensar/icons/ihss-logo.png">
     <title>Logística - IHSS A TU CASA</title>
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
     <link rel="preconnect" href="https://unpkg.com">
@@ -291,7 +291,7 @@
                             <div className="absolute right-0 top-0 h-full w-1/2 bg-white/10 skew-x-12 transform origin-bottom-right"></div>
                         </div>
                         <div className="flex justify-center items-center p-0 m-0 -my-0.5">
-                            <img src="./gifdashboard.gif" alt="" className="h-[calc(12rem+10mm)] md:h-[calc(15rem+10mm)] lg:h-[calc(18rem+10mm)] w-auto object-contain rounded-xl block" />
+                            <img src="./dispensar/gifdashboard.gif" alt="" className="h-[calc(12rem+10mm)] md:h-[calc(15rem+10mm)] lg:h-[calc(18rem+10mm)] w-auto object-contain rounded-xl block" />
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1526,7 +1526,7 @@
                             <div className="p-4 flex justify-between items-center border-b border-turquoise-800 shrink-0">
                                 <div className="font-bold text-white text-xl flex items-center gap-2 brand-font">
                                     <div className="w-6 h-6 rounded-lg bg-white flex items-center justify-center overflow-hidden shrink-0">
-                                        <img src="./icons/ihss-logo.png" alt="IHSS Logo" className="w-full h-full object-contain" onError={e=>{e.target.style.display='none';if(e.target.parentElement){e.target.parentElement.className='w-6 h-6 rounded-lg bg-gradient-to-br from-turquoise-400 to-blue-500 flex items-center justify-center';e.target.parentElement.innerHTML='<span class="text-white font-bold text-xs">IHSS</span>'}} } />
+                                        <img src="./dispensar/icons/ihss-logo.png" alt="IHSS Logo" className="w-full h-full object-contain" onError={e=>{e.target.style.display='none';if(e.target.parentElement){e.target.parentElement.className='w-6 h-6 rounded-lg bg-gradient-to-br from-turquoise-400 to-blue-500 flex items-center justify-center';e.target.parentElement.innerHTML='<span class="text-white font-bold text-xs">IHSS</span>'}} } />
                                     </div>
                                     IHSS A TU CASA
                                 </div>
@@ -1553,14 +1553,14 @@
                             {!sidebarCollapsed && (
                                 <div className="flex items-center gap-3 text-white">
                                     <div className="w-10 h-10 rounded-xl shadow-lg overflow-hidden bg-white flex items-center justify-center">
-                                        <img src="./icons/ihss-logo.png" alt="IHSS Logo" className="w-full h-full object-contain" onError={e=>{e.target.style.display='none';if(e.target.parentElement){e.target.parentElement.className='w-10 h-10 rounded-xl shadow-lg bg-gradient-to-br from-turquoise-500 to-blue-600 flex items-center justify-center';e.target.parentElement.innerHTML='<span class="text-white font-bold text-sm">IHSS</span>'}} } />
+                                        <img src="./dispensar/icons/ihss-logo.png" alt="IHSS Logo" className="w-full h-full object-contain" onError={e=>{e.target.style.display='none';if(e.target.parentElement){e.target.parentElement.className='w-10 h-10 rounded-xl shadow-lg bg-gradient-to-br from-turquoise-500 to-blue-600 flex items-center justify-center';e.target.parentElement.innerHTML='<span class="text-white font-bold text-sm">IHSS</span>'}} } />
                                     </div>
                                     <span className="font-bold text-2xl brand-font animate-in">IHSS</span>
                                 </div>
                             )}
                             {sidebarCollapsed && (
                                 <div className="w-10 h-10 rounded-xl shadow-lg overflow-hidden bg-white flex items-center justify-center mb-2">
-                                    <img src="./icons/ihss-logo.png" alt="IHSS Logo" className="w-full h-full object-contain" onError={e=>{e.target.style.display='none';if(e.target.parentElement){e.target.parentElement.className='w-10 h-10 rounded-xl shadow-lg bg-gradient-to-br from-turquoise-500 to-blue-600 flex items-center justify-center mb-2';e.target.parentElement.innerHTML='<span class="text-white font-bold text-sm">IHSS</span>'}} } />
+                                    <img src="./dispensar/icons/ihss-logo.png" alt="IHSS Logo" className="w-full h-full object-contain" onError={e=>{e.target.style.display='none';if(e.target.parentElement){e.target.parentElement.className='w-10 h-10 rounded-xl shadow-lg bg-gradient-to-br from-turquoise-500 to-blue-600 flex items-center justify-center mb-2';e.target.parentElement.innerHTML='<span class="text-white font-bold text-sm">IHSS</span>'}} } />
                                 </div>
                             )}
                             <button onClick={()=>setSidebarCollapsed(!sidebarCollapsed)} className="text-turquoise-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-turquoise-800 absolute right-4 top-6 btn-hover-effect" style={sidebarCollapsed ? { right: 'auto', top: 'auto', marginTop: '10px', position: 'static' } : {}}>
@@ -1598,7 +1598,7 @@
                                 <Icons.Menu size={24}/>
                             </button>
                             <div className="font-bold text-slate-800 flex items-center gap-2 brand-font text-base truncate flex-1 justify-center">
-                                <img src="./icons/ihss-logo.png" alt="IHSS Logo" className="w-5 h-5 object-contain shrink-0" onError={e=>{e.target.style.display='none'}} />
+                                <img src="./dispensar/icons/ihss-logo.png" alt="IHSS Logo" className="w-5 h-5 object-contain shrink-0" onError={e=>{e.target.style.display='none'}} />
                                 <span className="truncate">IHSS A TU CASA — Logística</span>
                             </div>
                             <div className="w-10 shrink-0" aria-hidden="true"></div>

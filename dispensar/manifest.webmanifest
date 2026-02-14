@@ -12,25 +12,25 @@
   "lang": "es-HN",
   "icons": [
     {
-      "src": "./icons/icon.svg",
+      "src": "./dispensar/icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "./icons/ihss-logo.png",
+      "src": "./dispensar/icons/ihss-logo.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icons/ihss-logo.png",
+      "src": "./dispensar/icons/ihss-logo.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icons/ihss-logo.png",
+      "src": "./dispensar/icons/ihss-logo.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

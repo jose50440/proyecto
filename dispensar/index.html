@@ -8,8 +8,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="IHSS A TU CASA">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="icon" href="./icons/ihss-logo.png" type="image/png">
-    <link rel="apple-touch-icon" href="./icons/ihss-logo.png">
+    <link rel="icon" href="./dispensar/icons/ihss-logo.png" type="image/png">
+    <link rel="apple-touch-icon" href="./dispensar/icons/ihss-logo.png">
     <title>IHSS A TU CASA - Plataforma de Dispensación</title>
     
     <!-- Preconnect para carga más rápida -->
@@ -1477,7 +1477,7 @@
                     <div className="hidden md:flex flex-1 min-w-0 max-w-xl items-center justify-center pl-4 lg:pl-8 relative z-10 flex-shrink order-first">
                         <div className="w-full max-w-md flex items-center justify-center" style={{ minHeight: '200px', height: 'min(60vh, 425px)' }}>
                             <img 
-                                src="./login-animacion.gif" 
+                                src="./dispensar/login-animacion.gif" 
                                 alt="IHSS A Tu Casa" 
                                 className="max-w-full w-auto object-contain object-center"
                                 style={{ maxHeight: 'min(60vh, 425px)', height: 'auto' }}
@@ -1496,7 +1496,7 @@
                                 <div className="flex justify-center mb-6">
                                     <div className="w-28 h-28 rounded-2xl flex items-center justify-center p-3 shadow-lg" style={{ background: 'linear-gradient(135deg, #e0f2f1 0%, #ccfbf1 50%, #d1fae5 100%)', border: '2px solid #99f6e4' }}>
                                         <img 
-                                            src="./icons/ihss-logo.png"
+                                            src="./dispensar/icons/ihss-logo.png"
                                             alt="IHSS Logo" 
                                             className="w-full h-full object-contain"
                                             onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span class="font-black text-2xl" style="color:#0d9488">IHSS</span>'; }}
@@ -1766,7 +1766,7 @@
                             <div className="absolute right-0 top-0 h-full w-1/2 bg-white/10 skew-x-12 transform origin-bottom-right"></div>
                         </div>
                         <div className="flex justify-center items-center p-0 m-0 -my-0.5">
-                            <img src="./gifdashboard.gif" alt="" className="h-[calc(12rem+10mm)] md:h-[calc(15rem+10mm)] lg:h-[calc(18rem+10mm)] w-auto object-contain rounded-xl block" />
+                            <img src="./dispensar/gifdashboard.gif" alt="" className="h-[calc(12rem+10mm)] md:h-[calc(15rem+10mm)] lg:h-[calc(18rem+10mm)] w-auto object-contain rounded-xl block" />
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -12586,7 +12586,7 @@ html +
                         {/* Logo IHSS */}
                         <div className="mb-8 flex items-center gap-3">
                             <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center shadow-xl border border-white/20 overflow-hidden">
-                                <img src="./icons/ihss-logo.png" alt="IHSS" className="w-9 h-9 object-contain"
+                                <img src="./dispensar/icons/ihss-logo.png" alt="IHSS" className="w-9 h-9 object-contain"
                                     onError={(e) => { e.target.style.display = 'none'; if (e.target.parentElement) { e.target.parentElement.classList.add('bg-gradient-to-br', 'from-turquoise-500', 'to-blue-600', 'flex', 'items-center', 'justify-center'); e.target.parentElement.innerHTML = '<span class="text-white font-bold">IHSS</span>'; } }} />
                             </div>
                             <span className="text-white font-bold text-xl brand-font tracking-tight">IHSS A TU CASA</span>
@@ -14753,7 +14753,7 @@ Responde en formato JSON con esta estructura:
                                 <div className="font-bold text-white text-xl flex items-center gap-2 brand-font">
                                     <div className="w-6 h-6 rounded-lg bg-white flex items-center justify-center overflow-hidden shrink-0">
                                         <img 
-                                            src="./icons/ihss-logo.png"
+                                            src="./dispensar/icons/ihss-logo.png"
                                             alt="IHSS Logo" 
                                             className="w-full h-full object-contain"
                                             onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.classList.add('bg-gradient-to-br', 'from-turquoise-400', 'to-blue-500'); e.target.parentElement.innerHTML = '<span class="text-white font-bold text-xs">IHSS</span>'; }}
@@ -14804,7 +14804,7 @@ Responde en formato JSON con esta estructura:
                                 <div className="flex items-center gap-3 text-white">
                                     <div className="w-10 h-10 rounded-xl shadow-lg overflow-hidden bg-white flex items-center justify-center">
                                         <img 
-                                            src="./icons/ihss-logo.png"
+                                            src="./dispensar/icons/ihss-logo.png"
                                             alt="IHSS Logo" 
                                             className="w-full h-full object-contain"
                                             onError={(e) => { e.target.style.display = 'none'; if (e.target.parentElement) { e.target.parentElement.className = 'w-10 h-10 rounded-xl shadow-lg bg-gradient-to-br from-turquoise-500 to-blue-600 flex items-center justify-center'; e.target.parentElement.innerHTML = '<span class="text-white font-bold text-sm">IHSS</span>'; } }}
@@ -14816,7 +14816,7 @@ Responde en formato JSON con esta estructura:
                             {sidebarCollapsed && (
                                 <div className="w-10 h-10 rounded-xl shadow-lg overflow-hidden bg-white flex items-center justify-center mb-2">
                                     <img 
-                                        src="./icons/ihss-logo.png"
+                                        src="./dispensar/icons/ihss-logo.png"
                                         alt="IHSS Logo" 
                                         className="w-full h-full object-contain"
                                         onError={(e) => { e.target.style.display = 'none'; if (e.target.parentElement) { e.target.parentElement.className = 'w-10 h-10 rounded-xl shadow-lg bg-gradient-to-br from-turquoise-500 to-blue-600 flex items-center justify-center mb-2'; e.target.parentElement.innerHTML = '<span class="text-white font-bold text-sm">IHSS</span>'; } }}
@@ -14893,7 +14893,7 @@ Responde en formato JSON con esta estructura:
                             <div className="font-bold text-slate-800 flex items-center gap-2 brand-font text-base truncate flex-1 justify-center">
                                 <div className="w-5 h-5 rounded flex items-center justify-center overflow-hidden shrink-0">
                                     <img 
-                                        src="./icons/ihss-logo.png"
+                                        src="./dispensar/icons/ihss-logo.png"
                                         alt="IHSS Logo" 
                                         className="w-full h-full object-contain"
                                         onError={(e) => { e.target.style.display = 'none'; if (e.target.parentElement) { e.target.parentElement.className = 'w-5 h-5 rounded bg-gradient-to-br from-turquoise-500 to-blue-600 flex items-center justify-center shrink-0'; e.target.parentElement.innerHTML = '<span class="text-white font-bold text-[10px]">IHSS</span>'; } }}
