@@ -51,7 +51,7 @@
     <div class="absolute -bottom-20 -left-20 w-96 h-96 bg-medical-green/10 rounded-full blur-3xl"></div>
 
     <!-- Contenedor Principal Centrado -->
-    <main class="w-full max-w-4xl glass-panel rounded-3xl p-8 md:p-12 text-center fade-in relative z-10 flex flex-col items-center gap-8">
+    <main class="w-full max-w-4xl glass-panel rounded-3xl p-8 md:p-12 text-center fade-in relative z-10 flex flex-col items-center gap-10">
         
         <!-- 1. Título -->
         <h1 class="text-4xl md:text-6xl font-extrabold text-medical-deep tracking-tight uppercase leading-none">
@@ -61,33 +61,21 @@
             </span>
         </h1>
 
-        <!-- 2. GIF Principal (Enorme) -->
-        <div class="w-full relative group cursor-pointer" onclick="window.location.href='/login'">
+        <!-- 2. GIF Principal (Visualización pura, sin clic) -->
+        <div class="w-full relative group">
             <!-- Sombra del GIF -->
-            <div class="absolute -inset-1 bg-gradient-to-r from-medical-teal to-medical-deep rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+            <div class="absolute -inset-1 bg-gradient-to-r from-medical-teal to-medical-deep rounded-2xl blur opacity-20 transition duration-500"></div>
             
             <!-- Marco y GIF -->
             <div class="relative bg-white p-2 rounded-2xl ring-1 ring-slate-200">
                 <img 
-                    src="gifdashboard.gif" 
+                    src="/formulario/gifdashboard.gif" 
                     alt="IHSS Dashboard" 
-                    class="w-full h-auto max-h-[60vh] object-cover rounded-xl"
+                    class="w-full h-auto max-h-[65vh] object-cover rounded-xl shadow-inner"
                     onerror="this.onerror=null; this.src='https://placehold.co/800x450/f8fafc/0f172a?text=VISUALIZACION+DEL+SISTEMA';"
                 >
-                
-                <!-- Capa hover sutil para indicar clic -->
-                <div class="absolute inset-0 bg-medical-deep/0 group-hover:bg-medical-deep/5 transition-colors rounded-xl flex items-center justify-center">
-                </div>
             </div>
         </div>
-
-        <!-- 3. Botón Discreto -->
-        <a href="/login" class="inline-flex items-center gap-2 text-medical-deep font-semibold border-b-2 border-transparent hover:border-medical-teal transition-all pb-1 hover:text-medical-teal">
-            Ingresar al Sistema
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-            </svg>
-        </a>
 
     </main>
 
