@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Encuesta IHSS – Entrega de Medicamentos a Domicilio | San Pedro Sula</title>
+    <!-- Preview al compartir en WhatsApp y redes -->
+    <meta property="og:title" content="Encuesta IHSS – Entrega de Medicamentos a Domicilio | San Pedro Sula">
+    <meta property="og:description" content="Encuesta sobre el servicio de entrega de medicamentos a domicilio del IHSS – San Pedro Sula">
+    <meta property="og:type" content="website">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 
@@ -202,6 +206,9 @@
                     <div class="flex bg-teal-50 rounded-lg p-1 flex-1 min-w-0">
                         <input type="text" id="publicLink" readonly class="bg-transparent w-full text-sm px-2 outline-none text-teal-700">
                         <button onclick="copyLink()" class="bg-teal-600 text-white px-3 py-1 rounded text-xs font-bold">COPIAR</button>
+                        <button type="button" onclick="shareWhatsApp()" class="bg-[#25D366] hover:bg-[#20BD5A] text-white px-3 py-1 rounded text-xs font-bold flex items-center gap-1" title="Compartir por WhatsApp">
+                            <i class="fab fa-whatsapp text-lg"></i> WhatsApp
+                        </button>
                     </div>
                     <button type="button" onclick="downloadExcel()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2">
                         <i class="fas fa-file-excel"></i> Descargar Excel
@@ -624,6 +631,13 @@
 
         function logout() { window.location.href = window.location.origin + BASE_FORMULARIO + '/#/pacientes'; }
         function copyLink() { const t = document.getElementById("publicLink"); t.select(); document.execCommand("copy"); alert("Enlace copiado."); }
+
+        function shareWhatsApp() {
+            var url = document.getElementById("publicLink").value;
+            var titulo = document.querySelector('meta[property="og:title"]') ? document.querySelector('meta[property="og:title"]').getAttribute('content') : document.title;
+            var texto = titulo + '\n\n' + url;
+            window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(texto), '_blank', 'noopener,noreferrer');
+        }
     </script>
 </body>
 </html>
