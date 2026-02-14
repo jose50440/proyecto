@@ -95,10 +95,19 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        .editor-item { border-left: 4px solid #CBD5E1; padding-left: 1rem; }
+        .editor-item { border-left: 4px solid #CBD5E1; padding-left: 1rem; transition: box-shadow 0.2s, border-color 0.2s; }
         .editor-item:focus-within { border-color: var(--verde-clinico); }
+        .editor-item.dragging { opacity: 0.6; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+        .editor-item.drag-over { border-left-color: var(--verde-clinico); background: #F0FDFA; }
+        .editor-item .drag-handle { cursor: grab; touch-action: none; }
+        .editor-item .drag-handle:active { cursor: grabbing; }
         #responseModal { display: none; }
         #responseModal.show { display: flex !important; }
+        /* Admin: cards y tabla */
+        .admin-card { border-radius: 1rem; box-shadow: 0 4px 20px rgba(13, 148, 136, 0.08); }
+        .admin-table thead th { padding: 0.75rem 1rem; white-space: nowrap; }
+        .admin-table tbody tr { transition: background 0.15s; }
+        .admin-table tbody tr:hover { background: #F0FDFA; }
     </style>
 </head>
 <body class="pb-24 min-h-screen">
@@ -155,69 +164,84 @@
     </div>
 
     <!-- ================= VISTA ADMIN: EDITOR ================= -->
-    <div id="view-editor" class="hidden-view p-4 bg-teal-50 min-h-screen">
+    <div id="view-editor" class="hidden-view p-4 md:p-6 bg-gradient-to-b from-teal-50 to-cyan-50 min-h-screen">
         <div class="max-w-4xl mx-auto">
-            <div class="bg-white p-6 rounded-xl shadow mb-6 border-l-4 border-teal-500">
-                <h2 class="text-xl font-bold mb-4">Configuración de la Encuesta</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <input type="text" id="editTitle" placeholder="Título" class="w-full border p-2 rounded">
-                    <input type="text" id="editDesc" placeholder="Descripción" class="w-full border p-2 rounded">
+            <div class="bg-white admin-card p-6 md:p-8 mb-6 border border-teal-100">
+                <h2 class="text-xl md:text-2xl font-bold text-teal-800 mb-1">Configuración de la encuesta</h2>
+                <p class="text-sm text-teal-500 mb-6">Título, descripción y orden de las preguntas</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-xs font-bold text-teal-600 uppercase mb-1">Título</label>
+                        <input type="text" id="editTitle" placeholder="Ej: Encuesta IHSS..." class="w-full border-2 border-teal-200 p-3 rounded-xl focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-teal-600 uppercase mb-1">Descripción</label>
+                        <input type="text" id="editDesc" placeholder="Ej: San Pedro Sula" class="w-full border-2 border-teal-200 p-3 rounded-xl focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none">
+                    </div>
                 </div>
-                <button onclick="addNewQuestion()" class="bg-teal-100 text-teal-700 px-4 py-2 rounded font-bold hover:bg-teal-200 text-sm"><i class="fas fa-plus mr-1"></i> Agregar Pregunta</button>
+                <button onclick="addNewQuestion()" class="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm inline-flex items-center gap-2 shadow-md"><i class="fas fa-plus"></i> Agregar pregunta</button>
+            </div>
+            <div class="mb-4 flex items-center gap-2 text-teal-600">
+                <i class="fas fa-grip-vertical"></i>
+                <span class="text-sm font-bold uppercase">Arrastre la barra para reordenar</span>
             </div>
             <div id="editorList" class="space-y-4"></div>
-            <div class="sticky bottom-4 bg-white p-4 rounded-xl shadow-2xl border border-teal-200 mt-6 flex justify-between items-center z-40">
-                <p class="text-xs text-teal-600 font-bold uppercase">Cambios sin guardar</p>
-                <button onclick="saveConfiguration()" id="btnSaveConfig" class="bg-teal-700 text-white px-6 py-3 rounded-lg font-bold hover:bg-teal-800 shadow-lg">GUARDAR CAMBIOS</button>
+            <div class="sticky bottom-4 bg-white admin-card p-4 md:p-5 mt-6 flex flex-wrap justify-between items-center gap-4 z-40 border-2 border-teal-200">
+                <p class="text-sm text-teal-600 font-bold"><i class="fas fa-info-circle mr-1"></i> Cambios sin guardar</p>
+                <button onclick="saveConfiguration()" id="btnSaveConfig" class="bg-teal-700 hover:bg-teal-800 text-white px-6 py-3 rounded-xl font-bold shadow-lg transition">Guardar cambios</button>
             </div>
         </div>
     </div>
 
     <!-- ================= VISTA ADMIN: LOGIN ================= -->
-    <div id="view-login" class="hidden-view min-h-screen flex items-center justify-center p-4 bg-teal-50">
-        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm text-center border border-teal-100">
-            <div class="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4 text-teal-600 text-2xl"><i class="fas fa-user-shield"></i></div>
-            <h2 class="font-bold text-teal-800 text-2xl mb-2">Acceso Admin</h2>
-            <p class="text-sm text-teal-500 mb-6">Panel de Control</p>
-            <input type="text" id="adminUser" placeholder="Usuario" class="w-full p-3 border border-teal-200 rounded-lg mb-3 text-center bg-teal-50">
-            <input type="password" id="adminPass" placeholder="Contraseña" class="w-full p-3 border border-teal-200 rounded-lg mb-4 text-center bg-teal-50">
-            <button onclick="attemptLogin()" class="w-full bg-teal-600 text-white font-bold py-3 rounded-lg hover:bg-teal-700 transition">Ingresar</button>
-            <p id="loginError" class="text-red-500 text-sm hidden mt-3 font-bold">Credenciales incorrectas</p>
-            <button onclick="changeRoute('pacientes')" class="mt-6 text-sm text-teal-500 underline">Volver a Encuesta</button>
+    <div id="view-login" class="hidden-view min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-teal-50 via-white to-cyan-50">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-xl border border-teal-100 overflow-hidden">
+            <div class="bg-gradient-to-r from-teal-600 to-cyan-600 px-8 py-8 text-center">
+                <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 text-white text-2xl"><i class="fas fa-user-shield"></i></div>
+                <h2 class="font-bold text-white text-xl mb-0.5">Acceso Admin</h2>
+                <p class="text-sm text-teal-100">Panel de control del formulario</p>
+            </div>
+            <div class="p-8">
+                <input type="text" id="adminUser" placeholder="Usuario" class="w-full p-3.5 border-2 border-teal-200 rounded-xl mb-3 text-center focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none">
+                <input type="password" id="adminPass" placeholder="Contraseña" class="w-full p-3.5 border-2 border-teal-200 rounded-xl mb-4 text-center focus:border-teal-500 focus:ring-2 focus:ring-teal-200 outline-none">
+                <button onclick="attemptLogin()" class="w-full bg-teal-600 text-white font-bold py-3.5 rounded-xl hover:bg-teal-700 transition shadow-md">Ingresar</button>
+                <p id="loginError" class="text-red-500 text-sm hidden mt-3 font-bold">Credenciales incorrectas</p>
+                <button onclick="changeRoute('pacientes')" class="mt-6 w-full text-sm text-teal-500 hover:text-teal-700 transition">← Volver a encuesta</button>
+            </div>
         </div>
     </div>
 
     <!-- ================= VISTA DASHBOARD ================= -->
-    <div id="view-dashboard" class="hidden-view p-4 min-h-screen bg-teal-50">
+    <div id="view-dashboard" class="hidden-view p-4 md:p-6 min-h-screen bg-gradient-to-b from-teal-50 to-cyan-50">
         <div class="max-w-5xl mx-auto">
-            <div class="bg-teal-700 text-white p-6 rounded-xl mb-6 flex justify-between items-center">
+            <div class="bg-gradient-to-r from-teal-600 to-cyan-600 text-white admin-card p-6 md:p-8 mb-6 flex flex-wrap justify-between items-center gap-4">
                 <div>
-                    <h2 class="font-bold text-xl">Resultados</h2>
-                    <p class="text-sm text-teal-200">Datos en tiempo real</p>
+                    <h2 class="font-bold text-xl md:text-2xl">Resultados</h2>
+                    <p class="text-sm text-teal-100 mt-0.5">Datos en tiempo real</p>
                 </div>
-                <div class="text-right">
-                    <p class="text-2xl font-bold" id="dashTotal">0</p>
-                    <p class="text-xs uppercase">Respuestas</p>
+                <div class="text-right bg-white/15 rounded-xl px-6 py-3">
+                    <p class="text-3xl font-bold" id="dashTotal">0</p>
+                    <p class="text-xs uppercase tracking-wider text-teal-100">Respuestas</p>
                 </div>
             </div>
-            <div class="bg-white p-4 rounded-xl shadow mb-6 border border-teal-200">
-                <p class="text-xs font-bold text-teal-600 uppercase mb-2">Enlace para Pacientes</p>
-                <div class="flex flex-wrap gap-2 items-center">
-                    <div class="flex bg-teal-50 rounded-lg p-1 flex-1 min-w-0">
-                        <input type="text" id="publicLink" readonly class="bg-transparent w-full text-sm px-2 outline-none text-teal-700">
-                        <button onclick="copyLink()" class="bg-teal-600 text-white px-3 py-1 rounded text-xs font-bold">COPIAR</button>
-                        <button type="button" onclick="shareWhatsApp()" class="bg-[#25D366] hover:bg-[#20BD5A] text-white px-3 py-1 rounded text-xs font-bold flex items-center gap-1" title="Compartir por WhatsApp">
+            <div class="bg-white admin-card p-5 md:p-6 mb-6 border border-teal-100">
+                <p class="text-xs font-bold text-teal-600 uppercase mb-3">Enlace para pacientes</p>
+                <div class="flex flex-wrap gap-3 items-stretch">
+                    <div class="flex bg-teal-50 rounded-xl border border-teal-200 overflow-hidden flex-1 min-w-0">
+                        <input type="text" id="publicLink" readonly class="bg-transparent w-full text-sm px-4 py-2.5 outline-none text-teal-700">
+                        <button onclick="copyLink()" class="bg-teal-600 text-white px-4 py-2.5 text-sm font-bold shrink-0">Copiar</button>
+                        <button type="button" onclick="shareWhatsApp()" class="bg-[#25D366] hover:bg-[#20BD5A] text-white px-4 py-2.5 text-sm font-bold flex items-center gap-2 shrink-0" title="Compartir por WhatsApp">
                             <i class="fab fa-whatsapp text-lg"></i> WhatsApp
                         </button>
                     </div>
-                    <button type="button" onclick="downloadExcel()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2">
+                    <button type="button" onclick="downloadExcel()" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow-md">
                         <i class="fas fa-file-excel"></i> Descargar Excel
                     </button>
                 </div>
             </div>
-            <div class="bg-white rounded-xl shadow overflow-hidden">
+            <div class="bg-white admin-card overflow-hidden border border-teal-100">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left">
+                    <table class="w-full text-sm text-left admin-table">
                         <thead class="bg-teal-100 text-teal-800 font-bold"><tr id="dashHeaders"></tr></thead>
                         <tbody id="dashBody" class="divide-y divide-teal-100"></tbody>
                     </table>
@@ -475,6 +499,8 @@
                 });
         });
 
+        let editorDraggedIdx = null;
+
         function renderEditor() {
             document.getElementById('editTitle').value = surveyConfig.title;
             document.getElementById('editDesc').value = surveyConfig.subtitle;
@@ -482,29 +508,71 @@
             list.innerHTML = '';
             surveyConfig.questions.forEach((q, idx) => {
                 const item = document.createElement('div');
-                item.className = "bg-white p-4 rounded-lg shadow border border-teal-200 editor-item";
+                item.className = "bg-white p-4 rounded-xl shadow border border-teal-200 editor-item flex gap-3 items-start";
+                item.draggable = true;
+                item.dataset.idx = idx;
                 item.innerHTML = `
-                    <div class="flex justify-between mb-2">
-                        <span class="font-bold text-teal-500 text-xs">PREGUNTA ${idx + 1} (${q.id})</span>
-                        <button onclick="deleteQuestion(${idx})" class="text-red-500 hover:text-red-700"><i class="fas fa-trash"></i></button>
+                    <div class="drag-handle flex flex-col items-center justify-center pt-1 text-teal-400 hover:text-teal-600 shrink-0" title="Arrastrar para reordenar">
+                        <i class="fas fa-grip-vertical text-xl"></i>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
-                        <input type="text" class="border border-teal-200 p-2 rounded text-sm w-full" value="${q.label}" onchange="updateQ(${idx}, 'label', this.value)" placeholder="Pregunta">
-                        <select class="border border-teal-200 p-2 rounded text-sm w-full" onchange="updateQ(${idx}, 'type', this.value)">
-                            <option value="radio" ${q.type==='radio'?'selected':''}>Tarjetas</option>
-                            <option value="select" ${q.type==='select'?'selected':''}>Lista</option>
-                            <option value="yesno" ${q.type==='yesno'?'selected':''}>Sí/No</option>
-                            <option value="text" ${q.type==='text'?'selected':''}>Texto</option>
-                            <option value="stars" ${q.type==='stars'?'selected':''}>Estrellas</option>
-                        </select>
-                    </div>
-                    <div class="grid grid-cols-3 gap-2">
-                        <input type="text" class="border border-teal-200 p-2 rounded text-sm col-span-2" value="${(q.options || '').replace(/"/g,'&quot;')}" onchange="updateQ(${idx}, 'options', this.value)" placeholder="Opciones (separadas por coma)">
-                        <input type="text" class="border border-teal-200 p-2 rounded text-sm" value="${q.icon || ''}" onchange="updateQ(${idx}, 'icon', this.value)" placeholder="Icono">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between mb-2">
+                            <span class="font-bold text-teal-500 text-xs">Pregunta ${idx + 1} · ${q.id}</span>
+                            <button type="button" onclick="deleteQuestion(${idx})" class="text-red-500 hover:text-red-700 p-1" title="Eliminar"><i class="fas fa-trash"></i></button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+                            <input type="text" class="border-2 border-teal-200 p-2 rounded-lg text-sm w-full focus:border-teal-500 outline-none" value="${escapeAttr(q.label)}" onchange="updateQ(${idx}, 'label', this.value)" placeholder="Texto de la pregunta">
+                            <select class="border-2 border-teal-200 p-2 rounded-lg text-sm w-full focus:border-teal-500 outline-none" onchange="updateQ(${idx}, 'type', this.value)">
+                                <option value="radio" ${q.type==='radio'?'selected':''}>Tarjetas</option>
+                                <option value="select" ${q.type==='select'?'selected':''}>Lista</option>
+                                <option value="yesno" ${q.type==='yesno'?'selected':''}>Sí/No</option>
+                                <option value="text" ${q.type==='text'?'selected':''}>Texto</option>
+                                <option value="stars" ${q.type==='stars'?'selected':''}>Estrellas</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <input type="text" class="border-2 border-teal-200 p-2 rounded-lg text-sm col-span-2 focus:border-teal-500 outline-none" value="${escapeAttr(q.options || '')}" onchange="updateQ(${idx}, 'options', this.value)" placeholder="Opciones (separadas por coma)">
+                            <input type="text" class="border-2 border-teal-200 p-2 rounded-lg text-sm focus:border-teal-500 outline-none" value="${escapeAttr(q.icon || '')}" onchange="updateQ(${idx}, 'icon', this.value)" placeholder="Icono (ej: fas fa-star)">
+                        </div>
                     </div>
                 `;
+                item.addEventListener('dragstart', editorDragStart);
+                item.addEventListener('dragover', editorDragOver);
+                item.addEventListener('dragleave', function(e) { e.currentTarget.classList.remove('drag-over'); });
+                item.addEventListener('drop', editorDrop);
+                item.addEventListener('dragend', editorDragEnd);
                 list.appendChild(item);
             });
+        }
+
+        function escapeAttr(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+        function editorDragStart(e) {
+            editorDraggedIdx = parseInt(e.currentTarget.dataset.idx, 10);
+            e.currentTarget.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', editorDraggedIdx);
+        }
+        function editorDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            var t = e.currentTarget;
+            if (t.dataset.idx !== undefined && parseInt(t.dataset.idx, 10) !== editorDraggedIdx) t.classList.add('drag-over');
+        }
+        function editorDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            var toIdx = parseInt(e.currentTarget.dataset.idx, 10);
+            if (editorDraggedIdx === null || editorDraggedIdx === toIdx) return;
+            var q = surveyConfig.questions[editorDraggedIdx];
+            surveyConfig.questions.splice(editorDraggedIdx, 1);
+            surveyConfig.questions.splice(toIdx, 0, q);
+            renderEditor();
+        }
+        function editorDragEnd(e) {
+            e.currentTarget.classList.remove('dragging');
+            document.querySelectorAll('.editor-item.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
+            editorDraggedIdx = null;
         }
 
         function updateQ(idx, field, val) { surveyConfig.questions[idx][field] = val; }
