@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Clínico de Búsqueda</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Librerías de Datos -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- Iconos Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Configuración Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                fontFamily: { sans: ['Inter', 'sans-serif'] },
+                extend: {
+                    colors: {
+                        brand: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 700: '#0f766e' },
+                        accent: { 50: '#ecfdf5', 500: '#10b981', 600: '#059669' }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #f3f4f6;
+            background-image: radial-gradient(#14b8a6 0.5px, transparent 0.5px), radial-gradient(#14b8a6 0.5px, #f3f4f6 0.5px);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            background-attachment: fixed;
+        }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.5); }
+        .tab-btn.active { color: #0d9488; border-bottom: 2px solid #0d9488; background-color: #f0fdfa; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .toggle-checkbox:checked { right: 0; border-color: #10b981; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #10b981; }
+    </style>
+</head>
+<body class="text-gray-800 font-sans min-h-screen flex flex-col overflow-x-hidden">
+
+    <!-- Navbar -->
+    <nav class="sticky top-0 z-40 w-full glass-panel border-b border-gray-200/50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center gap-3">
+                    <div class="bg-gradient-to-br from-brand-500 to-accent-500 p-2 rounded-lg shadow-md text-white">
+                        <i data-lucide="activity" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight text-gray-900 leading-tight">Portal Clínico</h1>
+                        <p class="text-[10px] font-semibold text-brand-600 uppercase tracking-wider">Gestión de Pacientes</p>
+                    </div>
+                </div>
+                <div id="connection-badge" class="flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-gray-100 border border-gray-200">
+                    <div class="relative flex h-3 w-3">
+                        <span id="status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                        <span id="status-dot" class="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span>
+                    </div>
+                    <span id="connection-text" class="text-xs font-medium text-gray-600">Conectando...</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenido -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- Panel Izquierdo: Config -->
+            <div class="lg:col-span-4 space-y-6">
+                <div class="glass-panel rounded-2xl shadow-lg p-6 relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-4 opacity-10"><i data-lucide="settings" class="w-24 h-24 text-brand-500 transform rotate-12"></i></div>
+                    <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <span class="bg-brand-100 p-1.5 rounded-md text-brand-600"><i data-lucide="database" class="w-5 h-5"></i></span>
+                        Configuración
+                    </h2>
+                    
+                    <div class="space-y-5 relative z-10">
+                        <!-- Selector Columna -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-600 mb-2">1. Columna a Buscar</label>
+                            <div class="relative">
+                                <select id="dniColumnSelect" class="w-full pl-4 pr-10 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm appearance-none disabled:bg-gray-50 disabled:text-gray-400" disabled>
+                                    <option>Cargando...</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400"><i data-lucide="chevron-down" class="w-4 h-4"></i></div>
+                            </div>
+                        </div>
+
+                        <!-- Toggle Modo -->
+                        <div class="bg-gray-50 rounded-xl p-3 border border-gray-200">
+                            <label class="block text-sm font-semibold text-gray-600 mb-2">2. Modo de Filtro</label>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-700 font-medium" id="toggle-text">Eliminar Duplicados</span>
+                                <div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                                    <input type="checkbox" id="uniqueMode" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300 right-6 checked:right-0 transition-all duration-300" checked onclick="updateToggleLabel()"/>
+                                    <label for="uniqueMode" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer checked:bg-brand-500 transition-colors duration-300"></label>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-gray-500 mt-2" id="toggle-desc">Muestra 1 resultado por valor. (Ideal DNI).</p>
+                            <div id="smart-search-badge" class="hidden mt-2 flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">
+                                <i data-lucide="sparkles" class="w-3 h-3"></i> <span class="font-bold">Búsqueda Inteligente</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Guía -->
+                <div class="glass-panel rounded-2xl shadow-sm border border-brand-100 p-6">
+                    <h3 class="text-sm font-bold text-gray-800 mb-3 uppercase tracking-wider text-brand-700">Tips de Búsqueda</h3>
+                    <ul class="space-y-3">
+                        <li class="flex items-start gap-3 text-sm text-gray-600">
+                            <i data-lucide="check-circle-2" class="w-5 h-5 text-brand-500 flex-shrink-0"></i>
+                            <span><b>DNI Exacto:</b> Activa "Eliminar Duplicados".</span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm text-gray-600">
+                            <i data-lucide="search-check" class="w-5 h-5 text-blue-500 flex-shrink-0"></i>
+                            <span><b>Municipios:</b> Desactiva la opción. Escribe "sps", "ceiba" o "progreso".</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Panel Derecho: Input y Resultados -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Área Input -->
+                <div class="glass-panel rounded-2xl shadow-xl p-1 flex flex-col h-[350px]">
+                    <div class="bg-white rounded-xl p-6 h-full flex flex-col">
+                        <div class="flex justify-between items-center mb-4">
+                            <label class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                <i data-lucide="file-input" class="w-5 h-5 text-gray-400"></i> Ingreso de Datos
+                            </label>
+                            <div class="flex items-center gap-2">
+                                <button onclick="clearInput()" class="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 transition-colors">
+                                    <i data-lucide="trash-2" class="w-3 h-3"></i> Limpiar
+                                </button>
+                                <span class="bg-gray-100 text-gray-500 text-xs px-2.5 py-1 rounded-md font-medium">Soporta 5000+</span>
+                            </div>
+                        </div>
+                        
+                        <div class="relative flex-grow group">
+                            <textarea id="inputDNI" class="w-full h-full p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl focus:bg-white focus:border-brand-500 focus:ring-0 resize-none font-mono text-sm text-gray-700 placeholder-gray-400 transition-all custom-scrollbar" placeholder="Ej: 0801199912345 (Modo Duplicados ON)&#10;Ej: sps, ceiba (Modo Duplicados OFF)"></textarea>
+                            <div class="absolute bottom-4 right-4 z-10">
+                                <button id="processBtn" onclick="processData()" disabled class="flex items-center gap-2 bg-gradient-to-r from-accent-600 to-brand-600 hover:from-accent-500 hover:to-brand-500 text-white px-6 py-3 rounded-full shadow-lg font-semibold transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <span id="btn-icon"><i data-lucide="search" class="w-5 h-5"></i></span>
+                                    <span id="btn-text">Procesar Datos</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN DE RESULTADOS (Oculta al inicio) -->
+                <div id="results-area" class="hidden bg-white rounded-2xl shadow-xl overflow-hidden mt-6">
+                    
+                    <!-- Header Resultados y Botón Excel -->
+                    <div class="flex justify-between items-center border-b border-gray-200 bg-gray-50 px-6 py-4">
+                        <div class="flex gap-4">
+                            <button onclick="switchTab('resumen')" id="tab-resumen" class="tab-btn active text-sm font-medium text-gray-600 hover:text-gray-900 pb-1 border-b-2 border-transparent transition-colors">Resultados</button>
+                            <button onclick="switchTab('estadisticas')" id="tab-estadisticas" class="tab-btn text-sm font-medium text-gray-500 hover:text-gray-900 pb-1 border-b-2 border-transparent transition-colors">Estadísticas</button>
+                        </div>
+                        
+                        <!-- BOTÓN MANUAL EXCEL -->
+                        <button id="btnDownloadExcel" onclick="downloadExcel()" class="hidden flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all transform hover:scale-105">
+                            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Descargar Excel
+                        </button>
+                    </div>
+
+                    <!-- Pestaña Resumen -->
+                    <div id="content-resumen" class="p-6">
+                        <!-- Stats Rápidas -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+                            <div class="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                                <p class="text-xs text-blue-600 font-bold uppercase">Buscados</p>
+                                <h4 class="text-2xl font-bold text-gray-800" id="stat-total">0</h4>
+                            </div>
+                            <div class="bg-green-50 rounded-xl p-4 border border-green-100">
+                                <p class="text-xs text-green-600 font-bold uppercase">Encontrados</p>
+                                <h4 class="text-2xl font-bold text-gray-800" id="stat-found">0</h4>
+                            </div>
+                            <div class="bg-red-50 rounded-xl p-4 border border-red-100">
+                                <p class="text-xs text-red-600 font-bold uppercase">No Encontrados</p>
+                                <h4 class="text-2xl font-bold text-gray-800" id="stat-missing">0</h4>
+                            </div>
+                        </div>
+
+                        <!-- Lista Encontrados -->
+                        <div id="found-section" class="mb-8 hidden">
+                            <h4 class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i> Resultados Visuales</h4>
+                            <div id="found-cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto custom-scrollbar p-1"></div>
+                        </div>
+
+                        <!-- Lista No Encontrados -->
+                        <div id="missing-section" class="hidden bg-red-50 rounded-xl border border-red-100 overflow-hidden">
+                            <div class="px-4 py-3 bg-red-100/50 flex justify-between items-center">
+                                <h4 class="text-xs font-bold text-red-700 flex items-center gap-2"><i data-lucide="alert-circle" class="w-4 h-4"></i> Sin Coincidencia</h4>
+                                <button onclick="copyAllMissing()" class="text-xs bg-white text-red-600 px-3 py-1 rounded border border-red-200 hover:bg-red-50 font-bold">Copiar Lista</button>
+                            </div>
+                            <div id="missing-cards-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 p-4 max-h-[200px] overflow-y-auto custom-scrollbar"></div>
+                        </div>
+                    </div>
+
+                    <!-- Pestaña Estadísticas -->
+                    <div id="content-estadisticas" class="hidden p-6 bg-gray-50/50">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-white p-6 rounded-xl shadow-sm">
+                                <h3 class="text-gray-500 text-xs font-bold uppercase mb-2">Promedio de Filas</h3>
+                                <div class="flex items-end gap-2">
+                                    <span id="stat-avg" class="text-4xl font-bold text-brand-600">0.0</span>
+                                    <span class="text-gray-400 text-sm mb-1">por paciente</span>
+                                </div>
+                            </div>
+                            <div class="bg-white p-6 rounded-xl shadow-sm">
+                                <h3 class="text-gray-500 text-xs font-bold uppercase mb-2">Mayor Frecuencia</h3>
+                                <h4 id="stat-max-dni" class="text-xl font-bold text-gray-800">---</h4>
+                                <span id="stat-max-count" class="text-sm text-green-600 font-bold">0 filas</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal -->
+    <div id="patient-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity" onclick="closeModal()"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-brand-600 px-4 py-4 flex justify-between items-center">
+                    <h3 class="text-lg font-medium text-white" id="modal-title">Detalle</h3>
+                    <button onclick="closeModal()" class="text-white hover:bg-brand-700 p-1 rounded"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+                <div class="px-4 py-5 max-h-[60vh] overflow-y-auto custom-scrollbar" id="modal-content"></div>
+                <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse">
+                    <button type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-brand-600 text-base font-medium text-white hover:bg-brand-700 sm:ml-3 sm:w-auto sm:text-sm" onclick="closeModal()">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // --- CONFIGURACIÓN E INICIO ---
+        const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRa0vyPEon_Qo05--034ulksoi9PC_e_Ew1zMqJA4t5_d333QnXHyHp8yzQBcOPGBz7sHOYq2j-n5eC/pub?gid=375135436&single=true&output=csv';
+        let dbData = [];
+        let headers = [];
+        let excelDataExport = []; // Variable global para guardar los datos a exportar
+        
+        // Diccionario Inteligente
+        const abbrMap = {
+            'sps': 'san pedro sula', 'sp': 'san pedro sula',
+            'tgu': 'tegucigalpa', 'teg': 'tegucigalpa', 'tegus': 'tegucigalpa',
+            'ceiba': 'la ceiba', 'progreso': 'el progreso', 'src': 'santa rosa de copan'
+        };
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            loadDatabase();
+        });
+
+        function loadDatabase() {
+            Papa.parse(SHEET_URL, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    dbData = results.data;
+                    headers = results.meta.fields;
+                    if (dbData.length > 0) {
+                        setOnlineStatus(true, dbData.length);
+                        populateSelect();
+                    } else {
+                        showToast('error', 'Base de datos vacía');
+                    }
+                },
+                error: function(err) {
+                    setOnlineStatus(false);
+                }
+            });
+        }
+
+        // --- FUNCIONES UI ---
+        function setOnlineStatus(isOnline, count = 0) {
+            const dot = document.getElementById('status-dot');
+            const ping = document.getElementById('status-ping');
+            const text = document.getElementById('connection-text');
+            const badge = document.getElementById('connection-badge');
+            const btn = document.getElementById('processBtn');
+            const select = document.getElementById('dniColumnSelect');
+
+            if (isOnline) {
+                dot.className = "relative inline-flex rounded-full h-3 w-3 bg-green-500";
+                ping.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75";
+                text.innerHTML = `Conectado <span class="font-bold text-green-700">(${count})</span>`;
+                badge.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-green-50 border border-green-200";
+                btn.disabled = false;
+                select.disabled = false;
+            } else {
+                dot.className = "bg-red-500 h-3 w-3 rounded-full";
+                ping.className = "hidden";
+                text.innerText = "Error Conexión";
+                badge.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 border border-red-200";
+            }
+        }
+
+        function populateSelect() {
+            const select = document.getElementById('dniColumnSelect');
+            select.innerHTML = '';
+            let found = false;
+            
+            // Limitamos a las primeras 8 columnas (Indices 0 a 7 -> A a H)
+            const limitedHeaders = headers.slice(0, 8);
+
+            limitedHeaders.forEach(h => {
+                const opt = document.createElement('option');
+                opt.value = h;
+                opt.text = h;
+                if (!found && h.match(/dni|identidad|cedula|id/i)) { opt.selected = true; found = true; }
+                select.appendChild(opt);
+            });
+        }
+
+        function updateToggleLabel() {
+            const isChecked = document.getElementById('uniqueMode').checked;
+            const label = document.getElementById('toggle-text');
+            const desc = document.getElementById('toggle-desc');
+            const badge = document.getElementById('smart-search-badge');
+
+            if(isChecked) {
+                label.innerText = "Eliminar Duplicados";
+                desc.innerText = "1 resultado por valor exacto.";
+                badge.classList.add('hidden');
+            } else {
+                label.innerText = "Mostrar Todos (Inteligente)";
+                desc.innerText = "Busca texto parcial y abreviaturas.";
+                badge.classList.remove('hidden');
+            }
+        }
+
+        function switchTab(tab) {
+            document.getElementById('content-resumen').classList.add('hidden');
+            document.getElementById('content-estadisticas').classList.add('hidden');
+            document.getElementById('tab-resumen').classList.remove('active', 'border-brand-600', 'text-brand-600');
+            document.getElementById('tab-estadisticas').classList.remove('active', 'border-brand-600', 'text-brand-600');
+            
+            document.getElementById(`content-${tab}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-${tab}`);
+            activeBtn.classList.add('active', 'border-brand-600', 'text-brand-600');
+        }
+
+        function clearInput() {
+            document.getElementById('inputDNI').value = '';
+            document.getElementById('results-area').classList.add('hidden');
+            document.getElementById('btnDownloadExcel').classList.add('hidden');
+        }
+
+        function cleanString(str) {
+            return str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim() : "";
+        }
+
+        // --- LÓGICA PRINCIPAL ---
+        function processData() {
+            const inputVal = document.getElementById('inputDNI').value;
+            const col = document.getElementById('dniColumnSelect').value;
+            const isUnique = document.getElementById('uniqueMode').checked;
+            
+            if (!inputVal.trim()) { showToast('info', 'Ingresa datos para buscar'); return; }
+
+            // UI Loading
+            const btn = document.getElementById('processBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin w-5 h-5"></i> Procesando...`;
+            btn.disabled = true;
+            lucide.createIcons();
+
+            setTimeout(() => {
+                try {
+                    const rawList = inputVal.split(/[\n,;\t]+/).map(s => s.trim()).filter(s => s !== "");
+                    let foundList = [];
+                    let missingList = [];
+                    let freqMap = new Map();
+                    let seenSet = new Set();
+                    excelDataExport = []; // Resetear export
+
+                    if (isUnique) {
+                        // MODO EXACTO
+                        const searchSet = new Set(rawList);
+                        for(let row of dbData) {
+                            const val = String(row[col] || "").trim();
+                            if(searchSet.has(val)) {
+                                freqMap.set(val, (freqMap.get(val)||0)+1);
+                                if(!seenSet.has(val)) {
+                                    seenSet.add(val);
+                                    foundList.push({ term: val, row: row });
+                                }
+                            }
+                        }
+                        // Missing
+                        const foundSet = new Set(foundList.map(i => i.term));
+                        missingList = rawList.filter(x => !foundSet.has(x));
+                    } else {
+                        // MODO INTELIGENTE
+                        const searchTerms = rawList.map(t => {
+                            const norm = cleanString(t);
+                            return { original: t, norm: abbrMap[norm] || norm };
+                        });
+
+                        for(let row of dbData) {
+                            const valRaw = String(row[col] || "");
+                            const valNorm = cleanString(valRaw);
+                            
+                            for(let term of searchTerms) {
+                                if(valNorm.includes(term.norm)) {
+                                    freqMap.set(term.original, (freqMap.get(term.original)||0)+1);
+                                    foundList.push({ term: term.original, row: row });
+                                    break; 
+                                }
+                            }
+                        }
+                        // Missing aproximado
+                        const foundKeys = new Set(freqMap.keys());
+                        missingList = rawList.filter(x => !foundKeys.has(x));
+                    }
+
+                    // Preparar Datos para UI y Exportar
+                    excelDataExport = foundList.map(f => f.row);
+                    lastMissingDNIs = missingList;
+
+                    // Renderizar
+                    renderStats(rawList.length, foundList.length, missingList.length);
+                    renderCards(foundList);
+                    renderMissing(missingList);
+                    renderAdvStats(freqMap);
+
+                    // Mostrar Resultados
+                    document.getElementById('results-area').classList.remove('hidden');
+                    
+                    // Mostrar Botón Excel si hay datos
+                    const btnExcel = document.getElementById('btnDownloadExcel');
+                    if(excelDataExport.length > 0) {
+                        btnExcel.classList.remove('hidden');
+                    } else {
+                        btnExcel.classList.add('hidden');
+                    }
+
+                    showToast(foundList.length > 0 ? 'success' : 'warning', `Se encontraron ${foundList.length} registros`);
+
+                } catch (e) {
+                    console.error(e);
+                    showToast('error', 'Error al procesar datos');
+                } finally {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    lucide.createIcons();
+                }
+            }, 500);
+        }
+
+        // --- NUEVA FUNCIÓN: DESCARGA MANUAL ---
+        function downloadExcel() {
+            if(!excelDataExport || excelDataExport.length === 0) {
+                showToast('warning', 'No hay datos para descargar');
+                return;
+            }
+            try {
+                const ws = XLSX.utils.json_to_sheet(excelDataExport, { header: headers });
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Resultados");
+                const fileName = `Busqueda_${new Date().toISOString().slice(0,10)}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                showToast('success', 'Excel descargado correctamente');
+            } catch(e) {
+                console.error(e);
+                showToast('error', 'Error al generar el Excel');
+            }
+        }
+
+        // --- RENDERIZADO ---
+        function renderStats(total, found, missing) {
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-found').innerText = found;
+            document.getElementById('stat-missing').innerText = missing;
+        }
+
+        function renderCards(list) {
+            const container = document.getElementById('found-cards-container');
+            const section = document.getElementById('found-section');
+            container.innerHTML = '';
+            
+            if(list.length === 0) {
+                section.classList.add('hidden');
+                return;
+            }
+            section.classList.remove('hidden');
+
+            // Detectar columnas nombre
+            const nameKey = headers.find(h => h.match(/nombre|name|paciente/i));
+            const idKey = headers.find(h => h.match(/dni|id|cedula/i));
+            
+            // Render limit 100
+            list.slice(0, 100).forEach(item => {
+                const title = item.term;
+                // Si encontramos columna nombre, úsala, sino usa algo genérico
+                const subtitle = nameKey ? item.row[nameKey] : (idKey && item.row[idKey] !== title ? item.row[idKey] : 'Ver detalles');
+
+                const div = document.createElement('div');
+                div.className = "bg-white border border-gray-200 p-3 rounded-lg hover:shadow-md cursor-pointer transition-all flex justify-between items-center";
+                div.onclick = () => openModal(item.row);
+                div.innerHTML = `
+                    <div class="overflow-hidden">
+                        <p class="text-xs font-bold text-gray-800 truncate">${title}</p>
+                        <p class="text-[10px] text-gray-500 truncate">${subtitle}</p>
+                    </div>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+                `;
+                container.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        function renderMissing(list) {
+            const container = document.getElementById('missing-cards-container');
+            const section = document.getElementById('missing-section');
+            container.innerHTML = '';
+
+            if(list.length === 0) {
+                section.classList.add('hidden');
+                return;
+            }
+            section.classList.remove('hidden');
+
+            list.forEach(val => {
+                const btn = document.createElement('button');
+                btn.className = "text-left text-xs bg-white border border-red-100 text-red-600 p-2 rounded hover:bg-red-50 truncate font-mono";
+                btn.innerText = val;
+                btn.onclick = () => copyText(val);
+                container.appendChild(btn);
+            });
+        }
+
+        function renderAdvStats(freqMap) {
+            let maxVal = 0, maxKey = '--', sum = 0, count = 0;
+            freqMap.forEach((v, k) => {
+                sum += v; count++;
+                if(v > maxVal) { maxVal = v; maxKey = k; }
+            });
+            const avg = count ? (sum/count).toFixed(1) : "0";
+            document.getElementById('stat-avg').innerText = avg;
+            document.getElementById('stat-max-dni').innerText = maxKey;
+            document.getElementById('stat-max-count').innerText = maxVal + " filas";
+        }
+
+        // --- UTILS ---
+        function openModal(row) {
+            const content = document.getElementById('modal-content');
+            content.innerHTML = '';
+            Object.entries(row).forEach(([k, v]) => {
+                if(v && v.trim()) {
+                    content.innerHTML += `
+                        <div class="bg-gray-50 p-2 rounded border border-gray-100 mb-2">
+                            <p class="text-[10px] font-bold text-brand-600 uppercase">${k}</p>
+                            <p class="text-sm text-gray-800 break-words">${v}</p>
+                        </div>
+                    `;
+                }
+            });
+            document.getElementById('patient-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('patient-modal').classList.add('hidden');
+        }
+
+        let lastMissingDNIs = [];
+        function copyAllMissing() {
+            if(lastMissingDNIs.length) copyText(lastMissingDNIs.join('\n'));
+        }
+
+        function copyText(txt) {
+            const ta = document.createElement('textarea');
+            ta.value = txt;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast('success', 'Copiado al portapapeles');
+        }
+
+        function showToast(type, msg) {
+            const box = document.createElement('div');
+            const colors = type === 'success' ? 'bg-gray-800 text-white border-green-500' : 
+                           type === 'error' ? 'bg-white text-red-600 border-red-200' : 'bg-white text-gray-800 border-blue-200';
+            box.className = `p-3 rounded-lg shadow-xl border-l-4 text-sm font-medium animate-bounce-sm mb-2 ${colors}`;
+            box.innerText = msg;
+            const container = document.getElementById('toast-container');
+            container.appendChild(box);
+            setTimeout(() => box.remove(), 3000);
+        }
+    </script>
+</body>
+</html>
