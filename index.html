@@ -61,18 +61,23 @@
             </span>
         </h1>
 
-        <!-- 2. GIF Principal (Visualización pura, sin clic) -->
+        <!-- 2. GIF Principal -->
         <div class="w-full relative group">
             <!-- Sombra del GIF -->
             <div class="absolute -inset-1 bg-gradient-to-r from-medical-teal to-medical-deep rounded-2xl blur opacity-20 transition duration-500"></div>
             
             <!-- Marco y GIF -->
             <div class="relative bg-white p-2 rounded-2xl ring-1 ring-slate-200">
+                <!-- 
+                     NOTA: El src apunta a tu archivo local. 
+                     Si no se encuentra (onerror), cargará una imagen de dashboard de demostración.
+                     El enlace de Terabox no funciona directo en 'src' porque es una web de descarga, no una imagen raw.
+                -->
                 <img 
                     src="/formulario/gifdashboard.gif" 
                     alt="IHSS Dashboard" 
                     class="w-full h-auto max-h-[65vh] object-cover rounded-xl shadow-inner"
-                    onerror="this.onerror=null; this.src='https://placehold.co/800x450/f8fafc/0f172a?text=VISUALIZACION+DEL+SISTEMA';"
+                    onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1000&auto=format&fit=crop';"
                 >
             </div>
         </div>
