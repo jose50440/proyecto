@@ -1901,49 +1901,44 @@
                 } catch { return ''; }
             };
 
-            const getSemaphoreForPatient = (p, klist) => {
-                const list = (klist || kits.filter(k => k.patientId === p.id && !k._suggestion)).filter(Boolean);
-                if (isRev) {
-                    if (list.length === 0) return 'green';
-                    const sorted = [...list].sort((a, b) => new Date(b.fechaArmado || 0) - new Date(a.fechaArmado || 0));
-                    const latest = sorted[0];
-                    const sent = !!(latest.contactCenter && String(latest.contactCenter).trim());
-                    if (sent && !latest.devueltoPorContactCenter) return 'orange';
-                    if (latest.devueltoPorContactCenter && !latest.recetaImpresa) return 'red';
+            const getSemaphoreForKit = (k, roleType) => {
+                const r = roleType || (isRev ? 'rev' : isCC ? 'cc' : 'rev');
+                if (r === 'rev') {
+                    const sent = !!(k.contactCenter && String(k.contactCenter).trim());
+                    if (sent && !k.devueltoPorContactCenter) return 'orange';
+                    if (k.devueltoPorContactCenter && !k.recetaImpresa) return 'red';
                     return 'green';
                 }
-                if (isCC) {
-                    if (list.length === 0) return 'green';
-                    return list.some(k => !k.confirmadoPorContactCenter) ? 'red' : 'green';
-                }
-                if (isAdmin) {
-                    if (list.length === 0) return 'green';
-                    const sorted = [...list].sort((a, b) => new Date(b.fechaArmado || 0) - new Date(a.fechaArmado || 0));
-                    const latest = sorted[0];
-                    const sent = !!(latest.contactCenter && String(latest.contactCenter).trim());
-                    if (sent && !latest.devueltoPorContactCenter) return 'orange';
-                    if (latest.devueltoPorContactCenter && !latest.recetaImpresa) return 'red';
-                    return latest.confirmadoPorContactCenter ? 'green' : 'red';
+                if (r === 'cc') {
+                    return k.confirmadoPorContactCenter ? 'green' : 'red';
                 }
                 return 'green';
             };
 
+            const getSemaphoreForPatient = (p, klist) => {
+                const list = (klist || kits.filter(k => k.patientId === p.id && !k._suggestion)).filter(Boolean);
+                if (list.length === 0) return 'green';
+                if (isCC) return list.some(k => !k.confirmadoPorContactCenter) ? 'red' : 'green';
+                const worst = list.reduce((acc, k) => {
+                    const s = getSemaphoreForKit(k, isRev ? 'rev' : 'cc');
+                    if (s === 'red') return 'red';
+                    if (s === 'orange' && acc !== 'red') return 'orange';
+                    return acc;
+                }, 'green');
+                return worst;
+            };
+
             const getSemaphoreForPatientByRole = (p, klist, roleType) => {
                 const list = (klist || kits.filter(k => k.patientId === p.id && !k._suggestion)).filter(Boolean);
-                if (roleType === 'rev') {
-                    if (list.length === 0) return 'green';
-                    const sorted = [...list].sort((a, b) => new Date(b.fechaArmado || 0) - new Date(a.fechaArmado || 0));
-                    const latest = sorted[0];
-                    const sent = !!(latest.contactCenter && String(latest.contactCenter).trim());
-                    if (sent && !latest.devueltoPorContactCenter) return 'orange';
-                    if (latest.devueltoPorContactCenter && !latest.recetaImpresa) return 'red';
-                    return 'green';
-                }
-                if (roleType === 'cc') {
-                    if (list.length === 0) return 'green';
-                    return list.some(k => !k.confirmadoPorContactCenter) ? 'red' : 'green';
-                }
-                return 'green';
+                if (list.length === 0) return 'green';
+                if (roleType === 'cc') return list.some(k => !k.confirmadoPorContactCenter) ? 'red' : 'green';
+                const worst = list.reduce((acc, k) => {
+                    const s = getSemaphoreForKit(k, roleType);
+                    if (s === 'red') return 'red';
+                    if (s === 'orange' && acc !== 'red') return 'orange';
+                    return acc;
+                }, 'green');
+                return worst;
             };
 
             const kitsForRole = useMemo(() => {
@@ -2034,13 +2029,8 @@
                 if (daySug.length > 0 && dayKits.length === 0) return 'blue';
                 if (dayKits.length === 0) return 'green';
                 let red = false, orange = false;
-                const seen = new Set();
                 dayKits.forEach(k => {
-                    const pt = patients.find(p => p.id === k.patientId);
-                    if (!pt || seen.has(pt.id)) return;
-                    seen.add(pt.id);
-                    const patientKits = kitsForRole.filter(kk => kk.patientId === pt.id);
-                    const sem = getSemaphoreForPatient(pt, patientKits);
+                    const sem = getSemaphoreForKit(k, isRev ? 'rev' : isCC ? 'cc' : 'rev');
                     if (sem === 'red') red = true;
                     if (sem === 'orange') orange = true;
                 });
@@ -2053,22 +2043,19 @@
                 if (!selectedDay) return { patients: [], kits: [], suggestions: [], bySem: {} };
                 const dayKits = (kitsByDate[selectedDay] || []).filter(k => !k._suggestion);
                 const daySug = (suggestionsByDate[selectedDay] || []).filter(s => !omitted[s._key]);
-                const seen = new Set();
                 const out = [];
                 dayKits.forEach(k => {
                     const pt = patients.find(p => p.id === k.patientId);
-                    if (!pt || seen.has(pt.id)) return;
-                    seen.add(pt.id);
-                    const patientKits = kitsForRole.filter(kk => kk.patientId === pt.id);
-                    const sem = getSemaphoreForPatient(pt, patientKits);
-                    out.push({ patient: pt, semaphore: sem, kits: dayKits.filter(kk => kk.patientId === pt.id), suggestion: null });
+                    if (!pt) return;
+                    const sem = getSemaphoreForKit(k, isRev ? 'rev' : isCC ? 'cc' : 'rev');
+                    out.push({ patient: pt, semaphore: sem, kits: [k], suggestion: null });
                 });
                 daySug.forEach(s => {
                     out.push({ patient: s.patient, semaphore: 'blue', kits: [], suggestion: s });
                 });
                 const bySem = { red: out.filter(x => x.semaphore === 'red'), orange: out.filter(x => x.semaphore === 'orange'), green: out.filter(x => x.semaphore === 'green'), blue: out.filter(x => x.semaphore === 'blue') };
                 return { patients: out, kits: dayKits, suggestions: daySug, bySem };
-            }, [selectedDay, kitsByDate, suggestionsByDate, patients, kitsForRole, omitted]);
+            }, [selectedDay, kitsByDate, suggestionsByDate, patients, kitsForRole, omitted, isRev, isCC]);
 
             const filteredDayDetail = useMemo(() => {
                 const { patients: list } = dayDetailData;
@@ -2099,32 +2086,23 @@
                 const norm = (s) => String(s || '').trim().toLowerCase();
                 const revMap = {};
                 const ccMap = {};
-                const seenRev = new Set();
-                const seenCc = new Set();
                 dayKits.forEach(k => {
                     const pt = patients.find(p => p.id === k.patientId);
                     if (!pt) return;
                     const revAssignee = norm(pt.usuarioRevisionAsignacion);
                     const ccAssignee = norm(pt.agenteContactCenter);
-                    const patientKits = kits.filter(kk => kk.patientId === pt.id && !kk._suggestion);
-                    const dayKitsForPatient = dayKits.filter(kk => kk.patientId === pt.id);
+                    const dayKitsForPatient = [k];
                     if (revAssignee) {
                         const key = revAssignee;
                         if (!revMap[key]) revMap[key] = { userName: key, displayName: (pt.usuarioRevisionAsignacion || '').trim() || key, items: [] };
-                        if (!seenRev.has(pt.id + '_rev')) {
-                            seenRev.add(pt.id + '_rev');
-                            const sem = getSemaphoreForPatientByRole(pt, patientKits, 'rev');
-                            revMap[key].items.push({ patient: pt, semaphore: sem, kits: dayKitsForPatient, suggestion: null });
-                        }
+                        const sem = getSemaphoreForKit(k, 'rev');
+                        revMap[key].items.push({ patient: pt, semaphore: sem, kits: dayKitsForPatient, suggestion: null });
                     }
                     if (ccAssignee) {
                         const key = ccAssignee;
                         if (!ccMap[key]) ccMap[key] = { userName: key, displayName: (pt.agenteContactCenter || '').trim() || key, items: [] };
-                        if (!seenCc.has(pt.id + '_cc')) {
-                            seenCc.add(pt.id + '_cc');
-                            const sem = getSemaphoreForPatientByRole(pt, patientKits, 'cc');
-                            ccMap[key].items.push({ patient: pt, semaphore: sem, kits: dayKitsForPatient, suggestion: null });
-                        }
+                        const sem = getSemaphoreForKit(k, 'cc');
+                        ccMap[key].items.push({ patient: pt, semaphore: sem, kits: dayKitsForPatient, suggestion: null });
                     }
                 });
                 const unassignedSug = [];
@@ -6551,6 +6529,8 @@
             const [bitacoraRevCarpetasSearch, setBitacoraRevCarpetasSearch] = useState('');
             const [bitacoraRevFechaAbierta, setBitacoraRevFechaAbierta] = useState(null);
             const [bitacoraRevModalSearch, setBitacoraRevModalSearch] = useState('');
+            const [renovarFechaAbierta, setRenovarFechaAbierta] = useState(null);
+            const [renovarPatientSeleccionado, setRenovarPatientSeleccionado] = useState(null);
             const [showMassAssignModal, setShowMassAssignModal] = useState(false);
             const [selectedFolderKey, setSelectedFolderKey] = useState(null); // null = lista carpetas; userName = detalle carpeta
             const [carteraSearch, setCarteraSearch] = useState('');
@@ -7361,23 +7341,28 @@
 
             const getPatientSemaphore = (p, patientKits) => {
                 const klist = (patientKits || kits.filter(k => k.patientId === p.id)).filter(Boolean);
+                if (klist.length === 0) return 'green';
+                const worst = klist.reduce((acc, k) => {
+                    const s = getSemaphoreForKitPM(k);
+                    if (s === 'red') return 'red';
+                    if (s === 'orange' && acc !== 'red') return 'orange';
+                    if (s === 'purple' && acc !== 'red' && acc !== 'orange') return 'purple';
+                    return acc;
+                }, 'green');
+                return worst;
+            };
+            const getSemaphoreForKitPM = (kit) => {
                 if (isRevisionAsignacion) {
-                    if (klist.length === 0) return 'green';
-                    const sorted = [...klist].sort((a, b) => new Date(b.fechaArmado || 0) - new Date(a.fechaArmado || 0));
-                    const latest = sorted[0];
-                    const sent = !!(latest.contactCenter && String(latest.contactCenter).trim());
-                    if (sent && !latest.devueltoPorContactCenter) return 'orange';
-                    if (latest.devueltoPorContactCenter && !latest.recetaImpresa) return 'red';
+                    const sent = !!(kit.contactCenter && String(kit.contactCenter).trim());
+                    if (sent && !kit.devueltoPorContactCenter) return 'orange';
+                    if (kit.devueltoPorContactCenter && !kit.recetaImpresa) return 'red';
                     return 'green';
                 }
                 if (isAgenteContactCenter) {
-                    if (klist.length === 0) return 'green';
-                    const sorted = [...klist].sort((a, b) => new Date(b.fechaArmado || 0) - new Date(a.fechaArmado || 0));
-                    const latest = sorted[0];
-                    const revNeverSent = !(latest.contactCenter && String(latest.contactCenter).trim());
-                    const esVentanilla = String(latest.deliveryMode || '').toLowerCase() === 'ventanilla';
+                    const revNeverSent = !(kit.contactCenter && String(kit.contactCenter).trim());
+                    const esVentanilla = String(kit.deliveryMode || '').toLowerCase() === 'ventanilla';
                     if (esVentanilla && revNeverSent) return 'purple';
-                    if (!latest.confirmadoPorContactCenter) return 'red';
+                    if (!kit.confirmadoPorContactCenter) return 'red';
                     return 'green';
                 }
                 return 'green';
@@ -8002,6 +7987,7 @@
                         baseData.observacionesLogistica = lastKit.observacionesLogistica || '';
                         baseData.gpsStatus = lastKit.gpsStatus || 'SIN GPS';
                         baseData.gpsValue = lastKit.gpsValue || '';
+                        baseData.direccionEntrega = lastKit.direccionEntrega || baseData.direccionEntrega || '';
                     }
                 }
                 setKitData(baseData);
@@ -8014,7 +8000,9 @@
                     ...m,
                     dispensar: m.dispensar !== false,
                     observaciones: m.observaciones || '',
-                    recetaFisicaVerificada: !!m.recetaFisicaVerificada
+                    recetaFisicaVerificada: !!m.recetaFisicaVerificada,
+                    hayQueRenovarRecetas: !!m.hayQueRenovarRecetas,
+                    fechaIndicadaRenovar: m.fechaIndicadaRenovar || ''
                 }));
                 const pt = patients.find(p => p.id === k.patientId) || selectedPatient;
                 const tc = k.tipoTelefonoCC || (k.phoneHighlight === 'personal' ? 'personal' : k.phoneHighlight === 'familiar' ? 'familiar' : 'ninguno');
@@ -10095,14 +10083,41 @@ html +
                                                                 <p className="text-xs text-red-600 font-semibold mt-1">⚠️ Debe explicar por qué no se dispensa este medicamento</p>
                                                             )}
                                                             {!va && (
-                                                                <div className="mt-2 flex items-center gap-2">
+                                                                <div className="mt-2 flex items-center gap-2 flex-wrap">
                                                                     <button type="button" onClick={() => {
-                                                                        const txt = `Pendiente renovar recetas: ${(med.nombre || 'medicamento').trim()}. `;
-                                                                        setKitData({ ...kitData, observacionesContactCenter: ((kitData.observacionesContactCenter || '') + txt).trim() });
-                                                                    }} className="px-3 py-1.5 bg-rose-100 text-rose-700 rounded-lg text-xs font-bold hover:bg-rose-200 transition-colors flex items-center gap-1">
-                                                                        <Icons.FileText size={12}/> Renovar recetas
+                                                                        const today = new Date().toISOString().split('T')[0];
+                                                                        const newMeds = [...(kitData.medicamentos||[])];
+                                                                        newMeds[idx] = { ...newMeds[idx], hayQueRenovarRecetas: true, fechaIndicadaRenovar: today };
+                                                                        setKitData({ ...kitData, medicamentos: newMeds });
+                                                                    }} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${med.hayQueRenovarRecetas ? 'bg-rose-500 text-white' : 'bg-rose-100 text-rose-700 hover:bg-rose-200'}`}>
+                                                                        <Icons.FileText size={12}/> Hay que renovar recetas
                                                                     </button>
-                                                                    <span className="text-[10px] text-rose-600">Contact Center gestionará renovación con el paciente</span>
+                                                                    <button type="button" onClick={() => {
+                                                                        const newMeds = [...(kitData.medicamentos||[])];
+                                                                        newMeds[idx] = { ...newMeds[idx], hayQueRenovarRecetas: false, fechaIndicadaRenovar: '' };
+                                                                        setKitData({ ...kitData, medicamentos: newMeds });
+                                                                    }} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${!med.hayQueRenovarRecetas ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}>
+                                                                        No hay / observaciones
+                                                                    </button>
+                                                                    {med.hayQueRenovarRecetas && med.fechaIndicadaRenovar && (
+                                                                        <span className="text-[10px] text-rose-600">Indicado: {med.fechaIndicadaRenovar}</span>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                            {va && (
+                                                                <div className="mt-2 flex items-center gap-2">
+                                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                                        <input type="checkbox" checked={!!med.hayQueRenovarRecetas} onChange={e=>{
+                                                                            const today = new Date().toISOString().split('T')[0];
+                                                                            const newMeds = [...(kitData.medicamentos||[])];
+                                                                            newMeds[idx] = { ...newMeds[idx], hayQueRenovarRecetas: e.target.checked, fechaIndicadaRenovar: e.target.checked ? today : '' };
+                                                                            setKitData({ ...kitData, medicamentos: newMeds });
+                                                                        }} className="rounded border-slate-300 text-rose-600" />
+                                                                        <span className="text-xs font-bold text-rose-700">Requiere renovar recetas en próxima dispensación</span>
+                                                                    </label>
+                                                                    {med.hayQueRenovarRecetas && med.fechaIndicadaRenovar && (
+                                                                        <span className="text-[10px] text-slate-500">Fecha: {med.fechaIndicadaRenovar}</span>
+                                                                    )}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -10774,15 +10789,8 @@ html +
                             )}
                             <div className="grid gap-3">
                                 {patientKits.map(kit => {
-                                    const sem = getPatientSemaphore(selectedPatient, patientKits);
-                                    const kitSem = isAgenteContactCenter ? (() => {
-                                        const revNeverSent = !(kit.contactCenter && String(kit.contactCenter).trim());
-                                        const esVentanilla = String(kit.deliveryMode || '').toLowerCase() === 'ventanilla';
-                                        if (esVentanilla && revNeverSent) return 'purple';
-                                        if (!kit.confirmadoPorContactCenter) return 'red';
-                                        return 'green';
-                                    })() : sem;
-                                    const semBorder = (isAgenteContactCenter ? kitSem : sem) === 'red' ? 'border-l-4 border-l-red-500 bg-red-50/30' : (isAgenteContactCenter ? kitSem : sem) === 'purple' ? 'border-l-4 border-l-violet-500 bg-violet-50/30' : (isAgenteContactCenter ? kitSem : sem) === 'orange' ? 'border-l-4 border-l-amber-500 bg-amber-50/30' : 'border-l-4 border-l-green-500 bg-green-50/30';
+                                    const sem = getSemaphoreForKitPM(kit);
+                                    const semBorder = sem === 'red' ? 'border-l-4 border-l-red-500 bg-red-50/30' : sem === 'purple' ? 'border-l-4 border-l-violet-500 bg-violet-50/30' : sem === 'orange' ? 'border-l-4 border-l-amber-500 bg-amber-50/30' : 'border-l-4 border-l-green-500 bg-green-50/30';
                                     return (
                                     <div key={kit.id} className={`p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row gap-4 relative group ${semBorder}`}>
                                         <div className="flex-1">
@@ -11038,7 +11046,7 @@ html +
                                 )}
                                 {(isRevisionAsignacion || isAgenteContactCenter) && (
                                     <button 
-                                        onClick={() => { setActivePatientTab('renovar'); setSelectedFolderKey(null); setSelectedPatient(null); setSelectedPatientFullData(null); }} 
+                                        onClick={() => { setActivePatientTab('renovar'); setSelectedFolderKey(null); setSelectedPatient(null); setSelectedPatientFullData(null); setRenovarFechaAbierta(null); setRenovarPatientSeleccionado(null); }} 
                                         className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${activePatientTab === 'renovar' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
                                     >
                                         Renovar Recetas
@@ -11329,68 +11337,107 @@ html +
                             )}
                             </>
                         ) : activePatientTab === 'renovar' && (isRevisionAsignacion || isAgenteContactCenter) ? (() => {
-                            const kitsConMedsNoVan = (kits || []).filter(k => {
+                            const medsQueRequierenRenovar = (m) => (m.dispensar === false) || (m.hayQueRenovarRecetas === true);
+                            const kitsConMedsRenovar = (kits || []).filter(k => {
                                 const meds = k.medicamentos || [];
-                                return meds.some(m => m.dispensar === false) && !k.yaRenovoRecetas;
+                                return meds.some(medsQueRequierenRenovar) && !k.yaRenovoRecetas;
                             });
-                            const renovarPorDia = {};
-                            kitsConMedsNoVan.forEach(k => {
-                                const f = (k.fechaArmado || k.fechaEntregaLogistica || new Date().toISOString().split('T')[0]).toString().trim().slice(0, 10);
-                                if (!renovarPorDia[f]) renovarPorDia[f] = [];
-                                renovarPorDia[f].push(k);
+                            const renovarPorFecha = {};
+                            kitsConMedsRenovar.forEach(k => {
+                                const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                                const medsDelKit = (k.medicamentos || []).filter(medsQueRequierenRenovar);
+                                if (medsDelKit.length === 0) return;
+                                medsDelKit.forEach(med => {
+                                    const f = (med.fechaIndicadaRenovar || k.fechaArmado || new Date().toISOString().split('T')[0]).toString().trim().slice(0, 10);
+                                    if (!renovarPorFecha[f]) renovarPorFecha[f] = {};
+                                    const key = (k.patientId || pt?.id) + '_' + k.id;
+                                    if (!renovarPorFecha[f][key]) renovarPorFecha[f][key] = { kit: k, pt, meds: [] };
+                                    renovarPorFecha[f][key].meds.push({ med, hayQueRenovar: !!med.hayQueRenovarRecetas, fecha: med.fechaIndicadaRenovar || k.fechaArmado || f });
+                                });
                             });
-                            const diasRenovar = Object.entries(renovarPorDia).sort((a, b) => b[0].localeCompare(a[0])).map(([fecha, klist]) => ({ fecha, kits: klist, count: klist.length }));
+                            const diasRenovar = Object.entries(renovarPorFecha).sort((a, b) => b[0].localeCompare(a[0])).map(([fecha, byKey]) => ({
+                                fecha,
+                                pacientes: Object.values(byKey),
+                                count: Object.keys(byKey).length
+                            }));
                             const formatearFechaR = (f) => { try { return new Date(f + 'T12:00:00').toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return f; } };
+                            const carpetaActual = diasRenovar.find(d => d.fecha === renovarFechaAbierta);
+                            const pacienteActual = renovarPatientSeleccionado;
                             return (
                                 <div className="space-y-4">
-                                    <div className="p-4 bg-violet-50 rounded-2xl border border-violet-200">
-                                        <p className="text-sm text-violet-800 font-medium">
-                                            {isRevisionAsignacion ? 'Pacientes con medicamentos que no se enviaron (pendientes de renovar recetas). Agrupe por día para control.' : 'Pacientes pendientes de renovar recetas. Marque "Ya renovó recetas" cuando el paciente entregue las recetas.'}
+                                    <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/80">
+                                        <p className="text-sm text-slate-700 font-medium">
+                                            Pacientes pendientes de renovar recetas. <span className="text-rose-600 font-bold">Rosa:</span> hay que renovar. <span className="text-amber-600 font-bold">Ámbar:</span> no hay / observaciones. Click en día → paciente → ver medicamentos con fecha indicada.
                                         </p>
                                     </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto">
-                                        {diasRenovar.length === 0 ? (
-                                            <div className="col-span-full p-12 text-center text-slate-500">
-                                                <Icons.Folder size={48} className="mx-auto mb-3 opacity-40"/>
-                                                <p className="font-medium">No hay pacientes pendientes de renovar recetas</p>
-                                            </div>
-                                        ) : diasRenovar.map(({ fecha, kits: klist }) => (
-                                            <div key={fecha} className="bg-white rounded-2xl border-2 border-violet-200 overflow-hidden">
-                                                <div className="p-4 border-b border-violet-100 bg-violet-50/50">
-                                                    <div className="font-bold text-slate-800">{formatearFechaR(fecha)}</div>
-                                                    <div className="text-xs text-violet-600 font-semibold">{klist.length} paciente(s)</div>
+                                    {!renovarFechaAbierta ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto">
+                                            {diasRenovar.length === 0 ? (
+                                                <div className="col-span-full p-12 text-center text-slate-500">
+                                                    <Icons.Folder size={48} className="mx-auto mb-3 opacity-40"/>
+                                                    <p className="font-medium">No hay pacientes pendientes de renovar recetas</p>
                                                 </div>
-                                                <div className="p-3 space-y-2 max-h-[200px] overflow-y-auto">
-                                                    {klist.map(k => {
-                                                        const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
-                                                        const medsNoVan = (k.medicamentos || []).filter(m => m.dispensar === false).map(m => (m.nombre || '—') + ' × ' + (m.cantidad || 1)).join(', ');
-                                                        return (
-                                                            <div key={k.id} className="p-2 bg-slate-50 rounded-lg text-xs">
-                                                                <div className="font-bold text-slate-800 truncate">{k.nombre || pt?.nombre || '—'}</div>
-                                                                <div className="text-slate-500 font-mono">{k.dni || pt?.dni || '—'}</div>
-                                                                <div className="text-violet-600 mt-1 font-semibold">Renovar recetas: {medsNoVan || '—'}</div>
-                                                                {isAgenteContactCenter && (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={async () => {
-                                                                            if (!confirm(`¿Confirmar que ${k.nombre || pt?.nombre} ya renovó las recetas?`)) return;
-                                                                            try {
-                                                                                if (onSaveKit) await onSaveKit(k.id, { yaRenovoRecetas: true, fechaYaRenovo: new Date().toISOString().split('T')[0] }, k.patientId, true);
-                                                                                window.dispatchEvent(new CustomEvent('notify-renovo', { detail: { paciente: k.nombre || pt?.nombre, dni: k.dni || pt?.dni } }));
-                                                                            } catch (e) { alert('Error: ' + (e?.message || e)); }
-                                                                        }}
-                                                                        className="mt-2 w-full py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700"
-                                                                    >
-                                                                        Ya renovó recetas
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
+                                            ) : diasRenovar.map(({ fecha, count }) => (
+                                                <button key={fecha} onClick={() => setRenovarFechaAbierta(fecha)} className="bg-white rounded-2xl border-2 border-violet-200 hover:border-violet-400 overflow-hidden text-left transition-all group">
+                                                    <div className="p-4 border-b border-violet-100 bg-violet-50/50">
+                                                        <div className="font-bold text-slate-800">{formatearFechaR(fecha)}</div>
+                                                        <div className="text-xs text-violet-600 font-semibold">{count} paciente(s)</div>
+                                                    </div>
+                                                    <div className="p-2 flex items-center gap-2 text-violet-600 text-xs font-medium group-hover:bg-violet-50">
+                                                        <Icons.ChevronRight size={14}/> Ver pacientes
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : !pacienteActual ? (
+                                        <div>
+                                            <button onClick={() => { setRenovarFechaAbierta(null); setRenovarPatientSeleccionado(null); }} className="mb-4 flex items-center gap-2 text-slate-500 hover:text-turquoise-600 font-bold text-sm">
+                                                <Icons.ArrowLeft size={18}/> Volver a carpetas
+                                            </button>
+                                            <div className="font-bold text-slate-800 mb-3">{formatearFechaR(renovarFechaAbierta)} — Pacientes</div>
+                                            <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+                                                {(carpetaActual?.pacientes || []).map(({ kit, pt, meds }) => (
+                                                    <div key={(pt?.id || kit?.patientId || kit?.id) + '_' + kit?.id} className="p-3 bg-white rounded-xl border-2 border-slate-200 hover:border-violet-300 transition-colors">
+                                                        <button onClick={() => setRenovarPatientSeleccionado({ kit, pt, meds })} className="w-full text-left">
+                                                            <div className="font-bold text-slate-800">{kit?.nombre || pt?.nombre || '—'}</div>
+                                                            <div className="text-slate-500 font-mono text-xs">{kit?.dni || pt?.dni || '—'}</div>
+                                                            <div className="text-xs text-violet-600 mt-1">{meds.length} medicamento(s) a renovar</div>
+                                                        </button>
+                                                        {isAgenteContactCenter && (
+                                                            <button type="button" onClick={async (e) => { e.stopPropagation(); if (!confirm(`¿Confirmar que ${kit?.nombre || pt?.nombre} ya renovó las recetas?`)) return; try { if (onSaveKit) await onSaveKit(kit.id, { yaRenovoRecetas: true, fechaYaRenovo: new Date().toISOString().split('T')[0] }, kit.patientId, true); window.dispatchEvent(new CustomEvent('notify-renovo', { detail: { paciente: kit?.nombre || pt?.nombre, dni: kit?.dni || pt?.dni } })); setRenovarPatientSeleccionado(null); } catch (e2) { alert('Error: ' + (e2?.message || e2)); } }} className="mt-2 w-full py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700">
+                                                                Ya renovó recetas
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
-                                    </div>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <button onClick={() => setRenovarPatientSeleccionado(null)} className="mb-4 flex items-center gap-2 text-slate-500 hover:text-turquoise-600 font-bold text-sm">
+                                                <Icons.ArrowLeft size={18}/> Volver a pacientes
+                                            </button>
+                                            <div className="font-bold text-slate-800 mb-2">{pacienteActual.kit?.nombre || pacienteActual.pt?.nombre || '—'}</div>
+                                            <div className="text-slate-500 font-mono text-sm mb-4">DNI: {pacienteActual.kit?.dni || pacienteActual.pt?.dni || '—'}</div>
+                                            <div className="space-y-2">
+                                                {pacienteActual.meds.map(({ med, hayQueRenovar, fecha }, i) => (
+                                                    <div key={i} className={`p-3 rounded-xl border-2 ${hayQueRenovar ? 'bg-rose-50 border-rose-200' : 'bg-amber-50 border-amber-200'}`}>
+                                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                                            <span className={`font-bold ${hayQueRenovar ? 'text-rose-800' : 'text-amber-800'}`}>{(med?.nombre || '—')} × {(med?.cantidad || 1)}</span>
+                                                            <span className="text-xs font-mono text-slate-600">Fecha indicada: {fecha || '—'}</span>
+                                                        </div>
+                                                        {hayQueRenovar ? <span className="text-xs font-bold text-rose-600">Hay que renovar recetas</span> : <span className="text-xs font-bold text-amber-600">No hay / observaciones</span>}
+                                                        {med?.observaciones && <div className="text-xs text-slate-600 mt-1">Obs: {med.observaciones}</div>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {isAgenteContactCenter && (
+                                                <button type="button" onClick={async () => { if (!confirm(`¿Confirmar que ${pacienteActual.kit?.nombre || pacienteActual.pt?.nombre} ya renovó las recetas?`)) return; try { if (onSaveKit) await onSaveKit(pacienteActual.kit.id, { yaRenovoRecetas: true, fechaYaRenovo: new Date().toISOString().split('T')[0] }, pacienteActual.kit.patientId, true); window.dispatchEvent(new CustomEvent('notify-renovo', { detail: { paciente: pacienteActual.kit?.nombre || pacienteActual.pt?.nombre, dni: pacienteActual.kit?.dni || pacienteActual.pt?.dni } })); setRenovarPatientSeleccionado(null); } catch (e) { alert('Error: ' + (e?.message || e)); } }} className="mt-4 w-full py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700">
+                                                    Ya renovó recetas
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })() : needsTabs && activePatientTab === 'asignados' && Object.keys(patientsByUser).length > 0 ? (
