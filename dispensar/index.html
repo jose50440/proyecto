@@ -5258,15 +5258,16 @@
             }, [filteredKits, reportDateFilter, reportCustomFrom, reportCustomTo]);
 
             const reportTotals = useMemo(() => {
-                const v = reportDateRangeKits.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla');
-                const r = reportDateRangeKits.filter(k => (k.deliveryMode || '').toLowerCase() !== 'ventanilla');
-                const verde = reportDateRangeKits.filter(k => (k.fechaEntregaKit || '').toString().trim());
-                return { ventanilla: v.length, ruta: r.length, entregados: verde.length, total: reportDateRangeKits.length };
+                const btp = reportDateRangeKits.reduce((s, k) => s + (parseInt(k.btp, 10) || 0), 0);
+                const btg = reportDateRangeKits.reduce((s, k) => s + (parseInt(k.btg, 10) || 0), 0);
+                const bolsaVerdeGrande = reportDateRangeKits.filter(k => (k.tipoBolsaVerde || '').toUpperCase() === 'GRANDE').length;
+                const bolsaVerdePequena = reportDateRangeKits.filter(k => (k.tipoBolsaVerde || '').toUpperCase() === 'PEQUEÑA').length;
+                return { btp, btg, bolsaVerdeGrande, bolsaVerdePequena, total: reportDateRangeKits.length };
             }, [reportDateRangeKits]);
             
             const groupedByMonth = useMemo(() => {
                 const groups = {};
-                filteredKits.forEach(kit => {
+                reportDateRangeKits.forEach(kit => {
                     if (!kit.fechaArmado) return;
                     const date = new Date(kit.fechaArmado);
                     const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
@@ -5293,30 +5294,48 @@
                 return groups;
             }, [reportDateRangeKits]);
 
+            const toExcelRow = (kit) => ({
+                'DNI': kit.dni || '',
+                'Nombre': kit.nombre || '',
+                'Cantidad Medicamentos': kit.medicamentos?.length || 0,
+                'Cantidad Refrigerados': kit.isRefrigerated ? (kit.cantRefriGlobal || 1) : 0,
+                'BTP': kit.btp != null && kit.btp !== '' ? String(kit.btp) : '',
+                'BTG': kit.btg != null && kit.btg !== '' ? String(kit.btg) : '',
+                'Bolsa Verde': (kit.tipoBolsaVerde || 'GRANDE') === 'PEQUEÑA' ? 'Pequeña' : (kit.tipoBolsaVerde || '') === 'NINGUNA' ? 'Ninguna' : 'Grande',
+                'Fecha Armado Kit': kit.fechaArmado || '',
+                'Digitador': kit.digitador || '',
+                'Fecha Entrega Kit': kit.fechaEntregaKit || '',
+                'Modo Entrega': kit.deliveryMode === 'ruta' ? 'Ruta' : 'Ventanilla',
+                'Contact Center': kit.contactCenter || '',
+                'GPS': kit.gpsStatus || 'SIN GPS'
+            });
+
             const downloadDayExcel = async (dayKits) => {
                 if (!dayKits || dayKits.length === 0) {
                     alert('No hay kits para este día');
                     return;
                 }
                 const XLSX = await window.ensureXLSX();
-                const excelData = dayKits.map(kit => ({
-                    'DNI/ID': kit.dni || '',
-                    'Nombre': kit.nombre || '',
-                    'Cantidad Medicamentos': kit.medicamentos?.length || 0,
-                    'Cantidad Refrigerados': kit.isRefrigerated ? (kit.cantRefriGlobal || 1) : 0,
-                    'Fecha Armado Kit': kit.fechaArmado || '',
-                    'Digitador': kit.digitador || '',
-                    'Fecha Entrega Kit': kit.fechaEntregaKit || '',
-                    'Modo Entrega': kit.deliveryMode === 'ruta' ? 'Ruta' : 'Ventanilla',
-                    'Contact Center': kit.contactCenter || '',
-                    'GPS': kit.gpsStatus || 'SIN GPS'
-                }));
-
+                const excelData = dayKits.map(toExcelRow);
                 const ws = XLSX.utils.json_to_sheet(excelData);
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "Kits del Día");
-                
                 const fileName = `kits_${selectedDay}_${new Date().toISOString().split('T')[0]}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+            };
+
+            const downloadReportExcel = async () => {
+                if (!reportDateRangeKits || reportDateRangeKits.length === 0) {
+                    alert('No hay kits para el filtro seleccionado');
+                    return;
+                }
+                const XLSX = await window.ensureXLSX();
+                const excelData = reportDateRangeKits.map(toExcelRow);
+                const ws = XLSX.utils.json_to_sheet(excelData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Uso de Bolsas");
+                const rangeLabel = reportDateFilter === 'day' ? 'dia' : reportDateFilter === 'week' ? 'semana' : reportDateFilter === 'month' ? 'mes' : 'custom';
+                const fileName = `reporte_bolsas_${rangeLabel}_${new Date().toISOString().split('T')[0]}.xlsx`;
                 XLSX.writeFile(wb, fileName);
             };
 
@@ -5374,7 +5393,7 @@
                                     onClick={() => downloadDayExcel(groupedByMonth[selectedMonth]?.days[selectedDay]?.kits)} 
                                     className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all btn-hover-effect"
                                 >
-                                    <Icons.Download size={16}/> Descargar Excel
+                                    <Icons.Download size={16}/> Descargar Excel del día
                                 </button>
                             )}
                         </div>
@@ -5396,11 +5415,17 @@
                                     )}
                                 </div>
                                 <div className="flex flex-wrap gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-500"></span><span className="text-xs font-bold">Ventanilla (BTP):</span><span className="font-mono font-bold text-indigo-700">{reportTotals.ventanilla}</span></div>
-                                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="text-xs font-bold">Ruta (BTG):</span><span className="font-mono font-bold text-emerald-700">{reportTotals.ruta}</span></div>
-                                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500"></span><span className="text-xs font-bold">Entregados:</span><span className="font-mono font-bold text-green-700">{reportTotals.entregados}</span></div>
-                                    <div className="flex items-center gap-2 border-l border-slate-200 pl-4"><span className="text-xs font-bold">Total:</span><span className="font-mono font-bold text-slate-800">{reportTotals.total}</span></div>
+                                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-500"></span><span className="text-xs font-bold">BTP (unidades):</span><span className="font-mono font-bold text-indigo-700">{reportTotals.btp}</span></div>
+                                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="text-xs font-bold">BTG (unidades):</span><span className="font-mono font-bold text-emerald-700">{reportTotals.btg}</span></div>
+                                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500"></span><span className="text-xs font-bold">Bolsa verde grande:</span><span className="font-mono font-bold text-green-700">{reportTotals.bolsaVerdeGrande}</span></div>
+                                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-teal-500"></span><span className="text-xs font-bold">Bolsa verde pequeña:</span><span className="font-mono font-bold text-teal-700">{reportTotals.bolsaVerdePequena}</span></div>
+                                    <div className="flex items-center gap-2 border-l border-slate-200 pl-4"><span className="text-xs font-bold">Total kits:</span><span className="font-mono font-bold text-slate-800">{reportTotals.total}</span></div>
                                 </div>
+                                {(userRole === 'admin' || userRole === 'superadmin') && reportDateRangeKits.length > 0 && (
+                                    <button onClick={downloadReportExcel} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all btn-hover-effect self-start">
+                                        <Icons.Download size={16}/> Descargar Excel según filtro
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
