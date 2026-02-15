@@ -870,6 +870,7 @@
             Download: (p) => <Icon {...p} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></>} />,
             Bot: (p) => <Icon {...p} path={<><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line></>} />,
             Lock: (p) => <Icon {...p} path={<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></>} />,
+            Bell: (p) => <Icon {...p} path={<><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13 21a2 2 0 0 1-2 2 2 2 0 0 1-2-2"></path></>} />,
             FolderPlus: (p) => <Icon {...p} path={<><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></>} />,
             Wifi: (p) => <Icon {...p} path={<><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></>} />,
             Cloud: (p) => <Icon {...p} path={<><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></>} />,
@@ -1595,7 +1596,6 @@
             const { showCalendario, showDespacho, showOperaciones, showLogistica, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo } = permissions || {};
             const allCards = [
                 { id: 'reports', label: 'Reportes y Carpetas', icon: Icons.List, color: 'bg-amber-500', desc: 'Ver kits por fecha', allow: () => !!canViewReports && (role === 'admin' || role === 'superadmin') },
-                { id: 'reports', label: 'Reportes de mi Departamento', icon: Icons.List, color: 'bg-amber-500', desc: 'Generar reportes de tu departamento', allow: () => !!canViewReports && role === 'supervisor' },
                 { id: 'bitacora', label: 'Bitácora de trabajo', icon: Icons.Activity, color: 'bg-violet-600', desc: 'Mi trabajo del día en Contact Center', allow: () => !!showBitacoraTrabajo },
                 { id: 'calendario', label: 'Calendario', icon: Icons.Calendar, color: 'bg-emerald-500', desc: 'Ver programación y semáforos', allow: () => !!showCalendario },
                 { id: 'despacho', label: 'Lista de espera', icon: Icons.Box, color: 'bg-violet-500', desc: 'Kits de Revisión y asignación', allow: () => !!showDespacho },
@@ -5067,6 +5067,9 @@
             const [reportFilterMunicipio, setReportFilterMunicipio] = useState('');
             const [reportFilterTipoAfiliado, setReportFilterTipoAfiliado] = useState('');
             const [reportFilterEdad, setReportFilterEdad] = useState('');
+            const [reportDateFilter, setReportDateFilter] = useState('month'); // 'day'|'week'|'month'|'custom'
+            const [reportCustomFrom, setReportCustomFrom] = useState('');
+            const [reportCustomTo, setReportCustomTo] = useState('');
 
             const userDept = currentUser?.departamento || '';
             const isAdminOrSuper = (userRole === 'admin' || userRole === 'superadmin');
@@ -5209,17 +5212,57 @@
             }, [manualReportRows, manualFilterDni, manualFilterNombre, manualFilterMunicipio, manualFilterTipoAfiliado, manualFilterEdad]);
 
             const filteredKits = useMemo(() => {
-                if (userRole !== 'supervisor' || !userDept || !users.length) return kits;
-                const deptNames = users
-                    .filter(u => (u.departamento || '').toLowerCase() === userDept.toLowerCase())
-                    .flatMap(u => [(u.nombre || '').trim(), (u.username || '').trim()].filter(Boolean))
-                    .map(n => n.toLowerCase());
-                return kits.filter(k => {
-                    const d = (k.digitador || '').trim().toLowerCase();
-                    if (!d) return false;
-                    return deptNames.some(n => n && (d === n || d.includes(n)));
-                });
+                let base = kits;
+                if (userRole === 'supervisor' && userDept && users.length) {
+                    const deptNames = users
+                        .filter(u => (u.departamento || '').toLowerCase() === userDept.toLowerCase())
+                        .flatMap(u => [(u.nombre || '').trim(), (u.username || '').trim()].filter(Boolean))
+                        .map(n => n.toLowerCase());
+                    base = kits.filter(k => {
+                        const d = (k.digitador || '').trim().toLowerCase();
+                        if (!d) return false;
+                        return deptNames.some(n => n && (d === n || d.includes(n)));
+                    });
+                }
+                return base;
             }, [kits, userRole, userDept, users]);
+
+            const reportDateRangeKits = useMemo(() => {
+                const today = new Date().toISOString().split('T')[0];
+                const getDateRange = () => {
+                    if (reportDateFilter === 'day') {
+                        return [today, today];
+                    }
+                    if (reportDateFilter === 'week') {
+                        const d = new Date();
+                        d.setDate(d.getDate() - 7);
+                        return [d.toISOString().split('T')[0], today];
+                    }
+                    if (reportDateFilter === 'month') {
+                        const d = new Date();
+                        d.setMonth(d.getMonth() - 1);
+                        return [d.toISOString().split('T')[0], today];
+                    }
+                    if (reportDateFilter === 'custom' && reportCustomFrom && reportCustomTo) {
+                        return [reportCustomFrom, reportCustomTo];
+                    }
+                    return null;
+                };
+                const range = getDateRange();
+                if (!range) return filteredKits;
+                const [from, to] = range;
+                return filteredKits.filter(k => {
+                    const f = (k.fechaArmado || k.fechaEntregaLogistica || '').toString().trim().slice(0, 10);
+                    return f && f >= from && f <= to;
+                });
+            }, [filteredKits, reportDateFilter, reportCustomFrom, reportCustomTo]);
+
+            const reportTotals = useMemo(() => {
+                const v = reportDateRangeKits.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla');
+                const r = reportDateRangeKits.filter(k => (k.deliveryMode || '').toLowerCase() !== 'ventanilla');
+                const verde = reportDateRangeKits.filter(k => (k.fechaEntregaKit || '').toString().trim());
+                return { ventanilla: v.length, ruta: r.length, entregados: verde.length, total: reportDateRangeKits.length };
+            }, [reportDateRangeKits]);
             
             const groupedByMonth = useMemo(() => {
                 const groups = {};
@@ -5248,7 +5291,7 @@
                     groups[monthKey].days[dayKey].kits.push(kit);
                 });
                 return groups;
-            }, [filteredKits]);
+            }, [reportDateRangeKits]);
 
             const downloadDayExcel = async (dayKits) => {
                 if (!dayKits || dayKits.length === 0) {
@@ -5304,35 +5347,61 @@
 
             return (
                 <div className="glass-panel-futuro rounded-3xl shadow-soft flex flex-col h-full animate-in overflow-hidden">
-                    <div className="p-6 border-b border-slate-100 bg-white/50 backdrop-blur-md flex justify-between items-center">
-                        <div className="flex items-center gap-4">
-                            <button onClick={handleBack} className={`p-2 rounded-xl transition-colors ${selectedMonth ? 'hover:bg-slate-100 text-slate-500' : 'opacity-0 pointer-events-none'}`}>
-                                <Icons.ArrowLeft size={20}/>
-                            </button>
-                            <div>
-                                <h3 className="font-bold text-xl text-slate-800 brand-font">
-                                    {selectedKit ? 'Detalle del Kit' : 
-                                     selectedDay ? `Kits del ${selectedDay}` :
-                                     selectedMonth ? groupedByMonth[selectedMonth]?.display :
-                                     (userRole === 'supervisor' ? 'Reportes de mi Departamento' : 'Reportes y Carpetas')}
-                                </h3>
-                                <p className="text-xs font-semibold text-turquoise-600">
-                                    {selectedKit ? 'Información completa' :
-                                     selectedDay ? `${groupedByMonth[selectedMonth]?.days[selectedDay]?.kits.length || 0} Kits` :
-                                     selectedMonth ? `${Object.keys(groupedByMonth[selectedMonth]?.days || {}).length} días` :
-                                     `${Object.keys(groupedByMonth).length} meses, ${filteredKits.length} kits totales`}
-                                    {userRole === 'supervisor' && userDept && ` · ${userDept}`}
-                                </p>
+                    <div className="p-6 border-b border-slate-100 bg-white/50 backdrop-blur-md flex flex-col gap-4">
+                        <div className="flex justify-between items-center flex-wrap gap-3">
+                            <div className="flex items-center gap-4">
+                                <button onClick={handleBack} className={`p-2 rounded-xl transition-colors ${selectedMonth ? 'hover:bg-slate-100 text-slate-500' : 'opacity-0 pointer-events-none'}`}>
+                                    <Icons.ArrowLeft size={20}/>
+                                </button>
+                                <div>
+                                    <h3 className="font-bold text-xl text-slate-800 brand-font">
+                                        {selectedKit ? 'Detalle del Kit' : 
+                                         selectedDay ? `Kits del ${selectedDay}` :
+                                         selectedMonth ? groupedByMonth[selectedMonth]?.display :
+                                         'Reportes y Carpetas'}
+                                    </h3>
+                                    <p className="text-xs font-semibold text-turquoise-600">
+                                        {selectedKit ? 'Información completa' :
+                                         selectedDay ? `${groupedByMonth[selectedMonth]?.days[selectedDay]?.kits.length || 0} Kits` :
+                                         selectedMonth ? `${Object.keys(groupedByMonth[selectedMonth]?.days || {}).length} días` :
+                                         `${Object.keys(groupedByMonth).length} meses, ${reportDateRangeKits.length} kits (filtro activo)`}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
                         
-                        {(userRole === 'admin' || userRole === 'superadmin' || userRole === 'supervisor') && selectedDay && (
-                            <button 
-                                onClick={() => downloadDayExcel(groupedByMonth[selectedMonth]?.days[selectedDay]?.kits)} 
-                                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all btn-hover-effect"
-                            >
-                                <Icons.Download size={16}/> Descargar Excel
-                            </button>
+                            {(userRole === 'admin' || userRole === 'superadmin') && selectedDay && (
+                                <button 
+                                    onClick={() => downloadDayExcel(groupedByMonth[selectedMonth]?.days[selectedDay]?.kits)} 
+                                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all btn-hover-effect"
+                                >
+                                    <Icons.Download size={16}/> Descargar Excel
+                                </button>
+                            )}
+                        </div>
+                        {!selectedMonth && !selectedDay && !selectedKit && isAdminOrSuper && (
+                            <div className="space-y-3">
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <span className="text-xs font-bold text-slate-500 uppercase">Filtro de fecha:</span>
+                                    {['day','week','month','custom'].map(f => (
+                                        <button key={f} onClick={()=>setReportDateFilter(f)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${reportDateFilter===f ? 'bg-turquoise-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                                            {f==='day'?'Día':f==='week'?'Semana':f==='month'?'Mes':'Personalizado'}
+                                        </button>
+                                    ))}
+                                    {reportDateFilter === 'custom' && (
+                                        <span className="flex items-center gap-2 text-xs">
+                                            <input type="date" value={reportCustomFrom} onChange={e=>setReportCustomFrom(e.target.value)} className="px-2 py-1.5 rounded border border-slate-200 text-xs" />
+                                            <span>a</span>
+                                            <input type="date" value={reportCustomTo} onChange={e=>setReportCustomTo(e.target.value)} className="px-2 py-1.5 rounded border border-slate-200 text-xs" />
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="flex flex-wrap gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-indigo-500"></span><span className="text-xs font-bold">Ventanilla (BTP):</span><span className="font-mono font-bold text-indigo-700">{reportTotals.ventanilla}</span></div>
+                                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="text-xs font-bold">Ruta (BTG):</span><span className="font-mono font-bold text-emerald-700">{reportTotals.ruta}</span></div>
+                                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500"></span><span className="text-xs font-bold">Entregados:</span><span className="font-mono font-bold text-green-700">{reportTotals.entregados}</span></div>
+                                    <div className="flex items-center gap-2 border-l border-slate-200 pl-4"><span className="text-xs font-bold">Total:</span><span className="font-mono font-bold text-slate-800">{reportTotals.total}</span></div>
+                                </div>
+                            </div>
                         )}
                     </div>
 
@@ -6446,7 +6515,7 @@
             const [showPatientForm, setShowPatientForm] = useState(false);
             const [editingPatientId, setEditingPatientId] = useState(null);
             const [confirmData, setConfirmData] = useState(null);
-            const [activePatientTab, setActivePatientTab] = useState('general'); // 'general' | 'asignados' | 'bitacora'
+            const [activePatientTab, setActivePatientTab] = useState('general'); // 'general' | 'asignados' | 'bitacora' | 'renovar'
             const [bitacoraRevTab, setBitacoraRevTab] = useState('creados');
             const [bitacoraRevCarpetasSearch, setBitacoraRevCarpetasSearch] = useState('');
             const [bitacoraRevFechaAbierta, setBitacoraRevFechaAbierta] = useState(null);
@@ -6456,6 +6525,7 @@
             const [carteraSearch, setCarteraSearch] = useState('');
             const [carteraSemFilter, setCarteraSemFilter] = useState('all'); // 'all' | 'green' | 'orange' | 'red'
             const [assignedUserFilter, setAssignedUserFilter] = useState(''); // '' = todos; normalized name = filtrar por usuario asignado (admin)
+            const [selectedPatientIds, setSelectedPatientIds] = useState(new Set()); // solo admin: selección para eliminar
             
             // Determinar si el usuario necesita pestañas
             const userDept = currentUser?.departamento || '';
@@ -6465,7 +6535,9 @@
             const isRevisionAsignacion = userDeptLower === 'farmacia' && userRoles.includes('revision y asignacion');
             const needsTabs = isAgenteContactCenter || isRevisionAsignacion;
             const canCreateKits = isRevisionAsignacion; // Solo farmacia revisión y asignación crean kits
-            const canCreatePatients = userRole === 'admin' || userRole === 'superadmin';
+            const canCreatePatients = userRole === 'admin' || userRole === 'superadmin' ||
+                (userDeptLower === 'contact center' && userRoles.includes('supervisor')) ||
+                (userDeptLower === 'logistica' && userRoles.includes('supervisor'));
             const isAdminOrSuperadmin = userRole === 'admin' || userRole === 'superadmin';
             const isDespacho = userDeptLower === 'farmacia' && userRoles.includes('despacho medicamentos');
             const isOperaciones = userDeptLower === 'operaciones' && (userRoles.includes('operador de empaque') || userRoles.includes('supervisor'));
@@ -9961,6 +10033,17 @@ html +
                                                             {!va && !med.observaciones && (
                                                                 <p className="text-xs text-red-600 font-semibold mt-1">⚠️ Debe explicar por qué no se dispensa este medicamento</p>
                                                             )}
+                                                            {!va && (
+                                                                <div className="mt-2 flex items-center gap-2">
+                                                                    <button type="button" onClick={() => {
+                                                                        const txt = `Pendiente renovar recetas: ${(med.nombre || 'medicamento').trim()}. `;
+                                                                        setKitData({ ...kitData, observacionesContactCenter: ((kitData.observacionesContactCenter || '') + txt).trim() });
+                                                                    }} className="px-3 py-1.5 bg-rose-100 text-rose-700 rounded-lg text-xs font-bold hover:bg-rose-200 transition-colors flex items-center gap-1">
+                                                                        <Icons.FileText size={12}/> Renovar recetas
+                                                                    </button>
+                                                                    <span className="text-[10px] text-rose-600">Contact Center gestionará renovación con el paciente</span>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                     );
@@ -10873,6 +10956,14 @@ html +
                                         Bitácora Rev.
                                     </button>
                                 )}
+                                {(isRevisionAsignacion || isAgenteContactCenter) && (
+                                    <button 
+                                        onClick={() => { setActivePatientTab('renovar'); setSelectedFolderKey(null); setSelectedPatient(null); setSelectedPatientFullData(null); }} 
+                                        className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${activePatientTab === 'renovar' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                                    >
+                                        Renovar Recetas
+                                    </button>
+                                )}
                             </div>
                         </div>
                     )}
@@ -11157,7 +11248,72 @@ html +
                                 </Modal>
                             )}
                             </>
-                        ) : needsTabs && activePatientTab === 'asignados' && Object.keys(patientsByUser).length > 0 ? (
+                        ) : activePatientTab === 'renovar' && (isRevisionAsignacion || isAgenteContactCenter) ? (() => {
+                            const kitsConMedsNoVan = (kits || []).filter(k => {
+                                const meds = k.medicamentos || [];
+                                return meds.some(m => m.dispensar === false) && !k.yaRenovoRecetas;
+                            });
+                            const renovarPorDia = {};
+                            kitsConMedsNoVan.forEach(k => {
+                                const f = (k.fechaArmado || k.fechaEntregaLogistica || new Date().toISOString().split('T')[0]).toString().trim().slice(0, 10);
+                                if (!renovarPorDia[f]) renovarPorDia[f] = [];
+                                renovarPorDia[f].push(k);
+                            });
+                            const diasRenovar = Object.entries(renovarPorDia).sort((a, b) => b[0].localeCompare(a[0])).map(([fecha, klist]) => ({ fecha, kits: klist, count: klist.length }));
+                            const formatearFechaR = (f) => { try { return new Date(f + 'T12:00:00').toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return f; } };
+                            return (
+                                <div className="space-y-4">
+                                    <div className="p-4 bg-rose-50 rounded-2xl border border-rose-200">
+                                        <p className="text-sm text-rose-800 font-medium">
+                                            {isRevisionAsignacion ? 'Pacientes con medicamentos que no se enviaron (pendientes de renovar recetas). Agrupe por día para control.' : 'Pacientes pendientes de renovar recetas. Marque "Ya renovó recetas" cuando el paciente entregue las recetas.'}
+                                        </p>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto">
+                                        {diasRenovar.length === 0 ? (
+                                            <div className="col-span-full p-12 text-center text-slate-500">
+                                                <Icons.Folder size={48} className="mx-auto mb-3 opacity-40"/>
+                                                <p className="font-medium">No hay pacientes pendientes de renovar recetas</p>
+                                            </div>
+                                        ) : diasRenovar.map(({ fecha, kits: klist }) => (
+                                            <div key={fecha} className="bg-white rounded-2xl border-2 border-rose-200 overflow-hidden">
+                                                <div className="p-4 border-b border-rose-100 bg-rose-50/50">
+                                                    <div className="font-bold text-slate-800">{formatearFechaR(fecha)}</div>
+                                                    <div className="text-xs text-rose-600 font-semibold">{klist.length} paciente(s)</div>
+                                                </div>
+                                                <div className="p-3 space-y-2 max-h-[200px] overflow-y-auto">
+                                                    {klist.map(k => {
+                                                        const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                                                        const medsNoVan = (k.medicamentos || []).filter(m => m.dispensar === false).map(m => (m.nombre || '—') + ' × ' + (m.cantidad || 1)).join(', ');
+                                                        return (
+                                                            <div key={k.id} className="p-2 bg-slate-50 rounded-lg text-xs">
+                                                                <div className="font-bold text-slate-800 truncate">{k.nombre || pt?.nombre || '—'}</div>
+                                                                <div className="text-slate-500 font-mono">{k.dni || pt?.dni || '—'}</div>
+                                                                <div className="text-rose-600 mt-1">No van: {medsNoVan || '—'}</div>
+                                                                {isAgenteContactCenter && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={async () => {
+                                                                            if (!confirm(`¿Confirmar que ${k.nombre || pt?.nombre} ya renovó las recetas?`)) return;
+                                                                            try {
+                                                                                if (onSaveKit) await onSaveKit(k.id, { yaRenovoRecetas: true, fechaYaRenovo: new Date().toISOString().split('T')[0] }, k.patientId, true);
+                                                                                window.dispatchEvent(new CustomEvent('notify-renovo', { detail: { paciente: k.nombre || pt?.nombre, dni: k.dni || pt?.dni } }));
+                                                                            } catch (e) { alert('Error: ' + (e?.message || e)); }
+                                                                        }}
+                                                                        className="mt-2 w-full py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700"
+                                                                    >
+                                                                        Ya renovó recetas
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })() : needsTabs && activePatientTab === 'asignados' && Object.keys(patientsByUser).length > 0 ? (
                             <div className="space-y-4">
                                 {!selectedFolderKey ? (
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -11332,9 +11488,24 @@ html +
                         ) : (
                             <>
                                 {(!searchTerm.trim()) && (
-                                    <div className="mb-4 flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-                                        <div className="text-sm text-slate-600">
-                                            Mostrando {currentPatients.length ? (indexOfFirstPatient + 1) : 0}-{indexOfLastPatient} (Página {currentPage}) — {currentPatients.length} pacientes cargados
+                                    <div className="mb-4 flex flex-wrap justify-between items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                        <div className="flex items-center gap-3 flex-wrap">
+                                            <span className="text-sm text-slate-600">
+                                                Mostrando {currentPatients.length ? (indexOfFirstPatient + 1) : 0}-{indexOfLastPatient} (Página {currentPage}) — {currentPatients.length} pacientes cargados
+                                            </span>
+                                            {(userRole==='admin'||userRole==='superadmin') && (
+                                                <>
+                                                    <button type="button" onClick={()=>setSelectedPatientIds(currentPatients.length ? new Set(currentPatients.map(x=>x.id).filter(Boolean)) : new Set())} className="text-[10px] font-bold text-turquoise-600 hover:text-turquoise-700">Seleccionar todo</button>
+                                                    {selectedPatientIds.size > 0 && (
+                                                        <button type="button" onClick={async ()=>{
+                                                            if (!confirm(`¿Eliminar ${selectedPatientIds.size} paciente(s) seleccionado(s)?`)) return;
+                                                            for (const id of selectedPatientIds) { await onDeletePatient(id); }
+                                                            setSelectedPatientIds(new Set());
+                                                            await loadPatients(currentPage, true);
+                                                        }} className="px-3 py-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 text-xs font-bold">Eliminar ({selectedPatientIds.size})</button>
+                                                    )}
+                                                </>
+                                            )}
                                         </div>
                                         <div className="flex gap-2">
                                             <button
@@ -11372,6 +11543,7 @@ html +
                                     <table className="w-full text-left border-collapse min-w-[800px]">
                                         <thead className="bg-slate-50/80 sticky top-0 z-10">
                                             <tr className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                                                {(userRole==='admin'||userRole==='superadmin') && <th className="px-4 py-4 w-12 text-center"><input type="checkbox" checked={currentPatients.length > 0 && currentPatients.every(p=>selectedPatientIds.has(p.id))} onChange={e=>{ if (e.target.checked) setSelectedPatientIds(new Set(currentPatients.map(x=>x.id).filter(Boolean))); else setSelectedPatientIds(new Set()); }} className="rounded border-slate-300 text-red-600 focus:ring-red-500" /></th>}
                                                 <th className="px-6 py-4 pl-8">Paciente</th>
                                                 <th className="px-6 py-4">Identificación</th>
                                                 <th className="px-6 py-4 text-center">{isAgenteContactCenter ? 'Kits activos' : 'N° Kits'}</th>
@@ -11384,8 +11556,14 @@ html +
                                                 const countKits = kits.filter(k => k.patientId === p.id).length;
                                                 const activeCount = getActiveKitsCount(p);
                                                 const statusLabels = getPatientActiveKitsStatus(p);
+                                                const isSel = selectedPatientIds.has(p.id);
                                                 return (
                                                     <tr key={p.id} onClick={() => handleSelectPatient(p)} className={`row-hover-effect cursor-pointer`}>
+                                                        {(userRole==='admin'||userRole==='superadmin') && (
+                                                            <td className="px-4 py-5 text-center" onClick={e=>e.stopPropagation()}>
+                                                                <input type="checkbox" checked={!!isSel} onChange={()=>{ setSelectedPatientIds(prev=>{ const n=new Set(prev); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n; }); }} className="rounded border-slate-300 text-red-600 focus:ring-red-500" />
+                                                            </td>
+                                                        )}
                                                         <td className="px-6 py-5 pl-8">
                                                             <div className="font-bold text-base text-slate-800 tracking-tight">{p.nombre}</div>
                                                             <div className="text-xs text-turquoise-600 font-medium mt-1 flex items-center gap-1">
@@ -12645,6 +12823,9 @@ html +
             const [users, setUsers] = useState([]);
             const [sidebarCollapsed, setSidebarCollapsed] = useState(false); 
             const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+            const [notifications, setNotifications] = useState([]);
+            const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+            const [floatingNotifications, setFloatingNotifications] = useState([]);
             const [cacheManager] = useState(new CacheManager());
             const [firebaseStatus, setFirebaseStatus] = useState('Conectando...');
             const [isFirebaseReady, setIsFirebaseReady] = useState(firebaseInitialized);
@@ -14648,6 +14829,8 @@ Responde en formato JSON con esta estructura:
                 const roles = currentUserData?.rolesDepartamento || [];
                 const sys = role || '';
                 const hasRevAsignacion = dep === 'farmacia' && roles.includes('revision y asignacion');
+                const isAgenteContactCenter = dep === 'contact center' && roles.includes('agente contact center');
+                const showNotifications = hasRevAsignacion || isAgenteContactCenter;
                 const showCalendario = sys === 'admin' || sys === 'superadmin' ||
                     (dep === 'contact center' && roles.includes('agente contact center')) ||
                     hasRevAsignacion;
@@ -14657,7 +14840,9 @@ Responde en formato JSON con esta estructura:
                 const showCalidad = dep === 'calidad' && (roles.includes('agente de calidad') || roles.includes('supervisor'));
                 const showLogistica = dep === 'logistica' && (roles.includes('asignador de rutas despacho logistica') || roles.includes('supervisor'));
                 const canViewPacientes = !onlyDespacho && (
-                    ['admin', 'superadmin', 'digitador'].includes(sys) || hasRevAsignacion
+                    ['admin', 'superadmin', 'digitador'].includes(sys) || hasRevAsignacion ||
+                    (dep === 'contact center' && roles.includes('supervisor')) ||
+                    (dep === 'logistica' && roles.includes('supervisor'))
                 );
                 const showBitacoraTrabajo = dep === 'contact center' && roles.includes('agente contact center');
                 return {
@@ -14667,13 +14852,14 @@ Responde en formato JSON con esta estructura:
                     showOperaciones,
                     showCalidad,
                     showLogistica,
-                    canViewReports: sys === 'admin' || sys === 'superadmin' || sys === 'supervisor',
+                    canViewReports: sys === 'admin' || sys === 'superadmin',
                     canViewConfig: sys === 'admin' || sys === 'superadmin',
                     canViewPacientes,
                     showBitacoraTrabajo,
+                    showNotifications,
                 };
             }, [currentUserData, role]);
-            const { showCalendario, showDespacho, onlyDespacho, showOperaciones, showCalidad, showLogistica, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo } = permissions;
+            const { showCalendario, showDespacho, onlyDespacho, showOperaciones, showCalidad, showLogistica, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo, showNotifications } = permissions;
             const currentUserForBlocks = { name: userName, role: role, ...(currentUserData || {}) };
             const openTrabajarFromPacientes = (kit) => { if (kit?.id) { setPendingTrabajarKitId(kit.id); setView('operaciones'); } };
             const clearPendingTrabajarKit = () => setPendingTrabajarKitId(null);
@@ -14713,6 +14899,38 @@ Responde en formato JSON con esta estructura:
                     setView('dashboard');
                 }
             }, [view, role, showCalendario, showDespacho, onlyDespacho, showOperaciones, showCalidad, showLogistica, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo]);
+            useEffect(() => {
+                if (!showNotifications) return;
+                const handler = (e) => {
+                    const d = e?.detail || {};
+                    const tipo = d.tipo || 'renovo';
+                    const n = { id: Date.now(), paciente: d.paciente || '—', dni: d.dni || '—', ts: new Date().toISOString(), tipo };
+                    setNotifications(prev => [n, ...prev].slice(0, 50));
+                    setFloatingNotifications(prev => [...prev, n]);
+                    setTimeout(() => setFloatingNotifications(prev => prev.filter(x => x.id !== n.id)), 30000);
+                    if (tipo !== 'kit_entregado' && d.skipSound !== true) {
+                        try { const a = new Audio('./alertadash.mp3'); a.volume = 1; a.play().catch(() => {}); } catch (_) {}
+                    }
+                };
+                window.addEventListener('notify-renovo', handler);
+                return () => window.removeEventListener('notify-renovo', handler);
+            }, [showNotifications]);
+            const notificationsToday = useMemo(() => {
+                const today = new Date().toISOString().split('T')[0];
+                return notifications.filter(n => (n.ts || '').split('T')[0] === today);
+            }, [notifications]);
+            useEffect(() => {
+                const today = () => new Date().toISOString().split('T')[0];
+                const prune = () => {
+                    setNotifications(prev => {
+                        const t = today();
+                        const kept = prev.filter(n => (n.ts || '').split('T')[0] === t);
+                        return kept.length === prev.length ? prev : kept;
+                    });
+                };
+                const id = setInterval(prune, 60000);
+                return () => clearInterval(id);
+            }, []);
 
             // Mostrar pantalla de conexión si Firebase no está listo
             if (!isFirebaseReady && firebaseConnectionStatus !== 'connected') {
@@ -14767,7 +14985,7 @@ Responde en formato JSON con esta estructura:
                             </div>
                             <div className="p-6 space-y-1 overflow-y-auto flex-1">
                                 <NavItem id="dashboard" label="Dashboard" icon={Icons.LayoutDashboard} />
-                                {canViewReports && <NavItem id="reports" label={role === 'supervisor' ? 'Reportes de mi Dept.' : 'Reportes'} icon={Icons.List} />}
+                                {canViewReports && <NavItem id="reports" label="Reportes" icon={Icons.List} />}
                                 {showCalendario && <NavItem id="calendario" label="Calendario" icon={Icons.Calendar} />}
                                 {showDespacho && <NavItem id="despacho" label="Lista de espera" icon={Icons.Box} />}
                                 {showOperaciones && <NavItem id="operaciones" label="Operaciones" icon={Icons.Box} />}
@@ -14838,7 +15056,7 @@ Responde en formato JSON con esta estructura:
                         )}
                         <nav className="flex-1 px-4 py-4 space-y-2 relative z-10 overflow-y-auto overflow-x-hidden">
                             <NavItem id="dashboard" label="Dashboard" icon={Icons.LayoutDashboard} />
-                            {canViewReports && <NavItem id="reports" label={role === 'supervisor' ? 'Reportes de mi Dept.' : 'Reportes'} icon={Icons.List} />}
+                            {canViewReports && <NavItem id="reports" label="Reportes" icon={Icons.List} />}
                             {showCalendario && <NavItem id="calendario" label="Calendario" icon={Icons.Calendar} />}
                             {showDespacho && <NavItem id="despacho" label="Lista de espera" icon={Icons.Box} />}
                             {showOperaciones && <NavItem id="operaciones" label="Operaciones" icon={Icons.Box} />}
@@ -14886,6 +15104,41 @@ Responde en formato JSON con esta estructura:
                     </aside>
 
                     <main className="main-col flex-1 flex flex-col h-full overflow-hidden overflow-x-hidden bg-white relative z-10 transition-all duration-300 min-w-0">
+                        {showNotifications && (
+                            <>
+                                <div className="hidden md:flex fixed top-4 right-4 z-[65] relative">
+                                    <button onClick={() => setNotificationPanelOpen(!notificationPanelOpen)} className="relative p-2.5 rounded-xl bg-white shadow-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center" aria-label="Notificaciones">
+                                        <Icons.Bell size={22}/>
+                                        {notificationsToday.length > 0 && (
+                                            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center px-1">{notificationsToday.length > 99 ? '99+' : notificationsToday.length}</span>
+                                        )}
+                                    </button>
+                                    {notificationPanelOpen && (
+                                        <div className="absolute right-0 top-full mt-2 w-[320px] max-h-[400px] overflow-y-auto bg-white rounded-2xl shadow-xl border border-slate-200 z-[70]">
+                                            <div className="p-3 border-b border-slate-100 font-bold text-slate-800">Notificaciones del día</div>
+                                            <div className="p-2">
+                                                {notificationsToday.length === 0 ? (
+                                                    <p className="text-sm text-slate-400 py-6 text-center">Sin notificaciones hoy</p>
+                                                ) : notificationsToday.map(n => (
+                                                    <div key={n.id} className="p-3 mb-2 bg-green-50 rounded-xl border border-green-100 text-sm">
+                                                        <div className="font-bold text-green-800">Ya renovó recetas</div>
+                                                        <div className="text-slate-600">{n.paciente} — {n.dni}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="fixed bottom-4 right-4 z-[64] flex flex-col gap-2 max-w-[340px] pointer-events-none">
+                                    {floatingNotifications.map(n => (
+                                        <div key={n.id} className="pointer-events-auto p-4 bg-white rounded-2xl shadow-xl border-l-4 border-green-500 animate-in">
+                                            <div className="font-bold text-green-800 text-sm">Ya renovó recetas</div>
+                                            <div className="text-slate-600 text-sm">{n.paciente} — {n.dni}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
                         <header className="md:hidden mobile-header-height fixed top-0 left-0 right-0 z-[60] bg-white/90 backdrop-blur-xl shadow-sm flex justify-between items-center h-14 shrink-0 border-b border-slate-200/80" style={{ paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
                             <button onClick={() => setMobileMenuOpen(true)} className="text-slate-600 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2 btn-hover-effect touch-manipulation rounded-xl" aria-label="Abrir menú">
                                 <Icons.Menu size={24}/>
@@ -14901,7 +15154,33 @@ Responde en formato JSON con esta estructura:
                                 </div>
                                 <span className="truncate">IHSS A TU CASA</span>
                             </div>
-                            <div className="w-10 shrink-0" aria-hidden="true"></div>
+                            {showNotifications ? (
+                                <div className="relative shrink-0">
+                                    <button onClick={() => setNotificationPanelOpen(!notificationPanelOpen)} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-xl btn-hover-effect" aria-label="Notificaciones">
+                                        <Icons.Bell size={22}/>
+                                        {notificationsToday.length > 0 && (
+                                            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center px-1">{notificationsToday.length > 99 ? '99+' : notificationsToday.length}</span>
+                                        )}
+                                    </button>
+                                    {notificationPanelOpen && (
+                                        <div className="absolute right-0 top-full mt-1 w-[320px] max-h-[400px] overflow-y-auto bg-white rounded-2xl shadow-xl border border-slate-200 z-[70] animate-in">
+                                            <div className="p-3 border-b border-slate-100 font-bold text-slate-800">Notificaciones del día</div>
+                                            <div className="p-2">
+                                                {notificationsToday.length === 0 ? (
+                                                    <p className="text-sm text-slate-400 py-6 text-center">Sin notificaciones hoy</p>
+                                                ) : notificationsToday.map(n => (
+                                                    <div key={n.id} className="p-3 mb-2 bg-green-50 rounded-xl border border-green-100 text-sm">
+                                                        <div className="font-bold text-green-800">Ya renovó recetas</div>
+                                                        <div className="text-slate-600">{n.paciente} — {n.dni}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="w-10 shrink-0" aria-hidden="true"></div>
+                            )}
                         </header>
                         <div className="mobile-content-area flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth relative z-10 min-w-0 mobile-content-pt">
                             {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} kits={kits} currentUser={currentUserForBlocks} patients={patients} users={users} permissions={permissions} />}
