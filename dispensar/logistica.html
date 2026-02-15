@@ -140,6 +140,10 @@
 
         const { useState, useEffect, useMemo } = React;
 
+        const NullComponent = () => null;
+        const safeCreateElement = (Comp, props) => (Comp != null && typeof Comp === 'function') ? React.createElement(Comp, props) : null;
+        const SafeIcon = ({ icon: IconComp, ...rest }) => (IconComp != null && typeof IconComp === 'function') ? React.createElement(IconComp, rest) : null;
+
         const Icon = ({ path, size = 20 }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="icon-elegant">{path}</svg>;
         const IconsBase = {
             Truck: (p) => <Icon {...p} path={<><path d="M16 3h5l5 5v11a2 2 0 0 1-2 2h-2"/><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h2"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></>} />,
@@ -167,10 +171,9 @@
         const Icons = new Proxy(IconsBase, {
             get(target, prop) {
                 const value = target[prop];
-                if (typeof value === 'function') return value;
-                if (typeof prop === 'string' && prop in target) return value;
-                if (typeof prop === 'string') console.warn(`[Icons] Icono no definido: ${prop}`);
-                return () => null;
+                if (value != null && typeof value === 'function') return value;
+                if (typeof prop === 'string') console.warn('[Icons] Icono no definido o invalido:', prop);
+                return NullComponent;
             }
         });
 
@@ -347,7 +350,7 @@
                             >
                                 <div className={`absolute top-0 right-0 w-24 h-24 ${c.color} opacity-10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`}></div>
                                 <div className={`w-12 h-12 rounded-2xl ${c.color} flex items-center justify-center text-white mb-4 shadow-md group-hover:scale-110 transition-transform`}>
-                                    {c.icon && typeof c.icon === 'function' ? React.createElement(c.icon, { size: 24 }) : null}
+                                    {safeCreateElement(c.icon, { size: 24 })}
                                 </div>
                                 <h4 className="font-bold text-lg text-slate-800 mb-1 group-hover:text-turquoise-600 transition-colors">{c.label}</h4>
                                 <p className="text-xs text-slate-400">{c.desc}</p>
