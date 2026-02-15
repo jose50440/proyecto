@@ -1559,7 +1559,7 @@
         };
 
         // --- BLOCK: DASHBOARD ---
-        const DashboardBlock = ({ setView, stats, userName, role, kits, currentUser, patients = [], users = [], permissions }) => { 
+        const DashboardBlock = ({ setView, stats, userName, role, kits, currentUser, patients = [], users = [], permissions, showNotifications, notificationsToday = [], notificationPanelOpen, setNotificationPanelOpen }) => { 
             const [time, setTime] = useState(new Date());
             const [weather, setWeather] = useState({ temp: null, humidity: null, desc: '', code: 0, isDay: 1, updatedAt: null, loading: true, error: null });
             const codes = { 0:'Despejado',1:'Mayormente despejado',2:'Parcialmente nublado',3:'Nublado',45:'Neblina',48:'Neblina helada',51:'Llovizna ligera',53:'Llovizna',55:'Llovizna densa',61:'Lluvia ligera',63:'Lluvia',65:'Lluvia fuerte',71:'Nieve ligera',73:'Nieve',75:'Nieve fuerte',77:'Granizo',80:'Chubascos ligeros',81:'Chubascos',82:'Chubascos fuertes',85:'Nevadas ligeras',86:'Nevadas fuertes',95:'Tormenta',96:'Tormenta con granizo',99:'Tormenta fuerte' };
@@ -1765,7 +1765,35 @@
                             </div>
                             <div className="absolute right-0 top-0 h-full w-1/2 bg-white/10 skew-x-12 transform origin-bottom-right"></div>
                         </div>
-                        <div className="flex justify-center items-center p-0 m-0 -my-0.5">
+                        <div className="relative flex justify-center items-center p-0 m-0 -my-0.5">
+                            {showNotifications && (
+                                <div className="absolute top-0 left-0 z-10 flex flex-col items-start">
+                                    <button onClick={() => setNotificationPanelOpen && setNotificationPanelOpen(!notificationPanelOpen)} className="relative p-2.5 rounded-xl bg-white/95 shadow-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center" aria-label="Notificaciones">
+                                        <Icons.Bell size={22}/>
+                                        {notificationsToday?.length > 0 && (
+                                            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center px-1">{notificationsToday.length > 99 ? '99+' : notificationsToday.length}</span>
+                                        )}
+                                    </button>
+                                    {notificationPanelOpen && (
+                                        <div className="absolute left-0 top-full mt-2 w-[320px] max-h-[400px] overflow-y-auto bg-white rounded-2xl shadow-xl border border-slate-200 z-[70]">
+                                            <div className="p-3 border-b border-slate-100 font-bold text-slate-800">Notificaciones del día</div>
+                                            <div className="p-2">
+                                                {(!notificationsToday || notificationsToday.length === 0) ? (
+                                                    <p className="text-sm text-slate-400 py-6 text-center">Sin notificaciones hoy</p>
+                                                ) : notificationsToday.map(n => (
+                                                    <div key={n.id} className={`p-3 mb-2 rounded-xl border text-sm ${n.tipo === 'asignacion' ? 'bg-indigo-50 border-indigo-100' : n.tipo === 'asignacion_admin' ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'}`}>
+                                                        <div className={`font-bold ${n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
+                                                            {n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
+                                                        </div>
+                                                        <div className="text-slate-600">{n.paciente || '—'} — {n.dni || '—'}</div>
+                                                        {n.origen && <div className="text-xs text-slate-500">{n.origen}</div>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <img src="./gifdashboard.gif" alt="" className="h-[calc(12rem+10mm)] md:h-[calc(15rem+10mm)] lg:h-[calc(18rem+10mm)] w-auto object-contain rounded-xl block" />
                         </div>
                     </div>
@@ -5324,7 +5352,7 @@
                 XLSX.writeFile(wb, fileName);
             };
 
-            const downloadReportExcel = async () => {
+            const downloadReportBolsasExcel = async () => {
                 if (!reportDateRangeKits || reportDateRangeKits.length === 0) {
                     alert('No hay kits para el filtro seleccionado');
                     return;
@@ -5422,7 +5450,7 @@
                                     <div className="flex items-center gap-2 border-l border-slate-200 pl-4"><span className="text-xs font-bold">Total kits:</span><span className="font-mono font-bold text-slate-800">{reportTotals.total}</span></div>
                                 </div>
                                 {(userRole === 'admin' || userRole === 'superadmin') && reportDateRangeKits.length > 0 && (
-                                    <button onClick={downloadReportExcel} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all btn-hover-effect self-start">
+                                    <button onClick={downloadReportBolsasExcel} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all btn-hover-effect self-start">
                                         <Icons.Download size={16}/> Descargar Excel según filtro
                                     </button>
                                 )}
@@ -6642,6 +6670,8 @@
             const [patients, setPatients] = useState([]);
             const [hasNextPage, setHasNextPage] = useState(false);
             const [pageCursors, setPageCursors] = useState({ 1: null }); // cursor de inicio por página (page -> { dni, id } o null)
+            const [totalPatientCount, setTotalPatientCount] = useState(null);
+            const [excelProgress, setExcelProgress] = useState({ show: false, percent: 0, current: 0, total: 0, added: 0, updated: 0, skipped: 0 });
             const [searchResults, setSearchResults] = useState(null); // null => no búsqueda remota / no resultados
             const [searching, setSearching] = useState(false);
             const [searchMode, setSearchMode] = useState(''); // '', 'cache', 'firebase'
@@ -6978,6 +7008,21 @@
             useEffect(() => {
                 loadPatients(1);
                 loadPrintTemplates();
+            }, []);
+
+            useEffect(() => {
+                if (!db || !firebase?.firestore) return;
+                let cancelled = false;
+                (async () => {
+                    try {
+                        const col = db.collection('prod_patients');
+                        if (typeof firebase.firestore.getCountFromServer === 'function') {
+                            const snap = await firebase.firestore.getCountFromServer(col);
+                            if (!cancelled && snap?.data) setTotalPatientCount(snap.data().count);
+                        }
+                    } catch (_) {}
+                })();
+                return () => { cancelled = true; };
             }, []);
 
             // Búsqueda usando caché de páginas (y fallback a Firestore solo si es DNI/prefijo)
@@ -7430,6 +7475,8 @@
             const currentPatients = filteredPatients;
             const indexOfFirstPatient = ((currentPage - 1) * patientsPerPage);
             const indexOfLastPatient = indexOfFirstPatient + currentPatients.length;
+            const totalEstimated = indexOfFirstPatient + currentPatients.length;
+            const totalPagesEstimated = hasNextPage ? currentPage + 1 : currentPage;
 
             const patientKits = selectedPatient ? kits.filter(k => k.patientId === selectedPatient.id) : [];
 
@@ -7455,42 +7502,49 @@
                     const wsname = wb.SheetNames[0];
                     const ws = wb.Sheets[wsname];
                     const data = XLSX.utils.sheet_to_json(ws);
-                    
+                    const total = data.length;
+                    if (total === 0) {
+                        alert('El archivo no tiene filas para procesar.');
+                        return;
+                    }
+                    setExcelProgress({ show: true, percent: 0, current: 0, total, added: 0, updated: 0, skipped: 0 });
                     let added = 0;
                     let skipped = 0;
                     let updated = 0;
                     const addedList = [];
+                    let processed = 0;
 
                     for (const row of data) {
                         const dniValue = String(row['DNI'] || row['dni'] || '').trim();
                         
-                        // Preparar solo los campos permitidos
                         const pData = {
                             dni: dniValue,
                             nombre: String(row['NOMBRE'] || row['nombre'] || '').toUpperCase().trim(),
                             telefono: String(row['TELEFONO'] || row['telefono'] || '').trim(),
                             familiar: String(row['FAMILIAR'] || row['familiar'] || '').toUpperCase().trim(),
                             telefonoFamiliar: String(row['TELEFONO_FAMILIAR'] || row['TELEFONOFAMILIAR'] || row['telefono_familiar'] || row['telefonofamiliar'] || '').trim(),
-                            nAfiliacion: dniValue, // La afiliación es la misma que el DNI
+                            nAfiliacion: dniValue,
                             direccion: String(row['DIRECCION'] || row['DIRECCIÓN'] || row['direccion'] || row['Dirección'] || row['dirección'] || '').trim(),
                             descripcionMunicipio: String(row['DESCRIPCION_MUNICIPIO'] || row['descripcion_municipio'] || row['DESCRIPCIONMUNICIPIO'] || row['descripcionmunicipio'] || row['MUNICIPIO'] || row['municipio'] || row['Municipio'] || '').trim(),
                             tipoAfiliado: String(row['TIPO_AFILIADO'] || row['tipo_afiliado'] || row['TIPOAFILIADO'] || row['tipoafiliado'] || row['TIPO AFILIADO'] || row['Tipo Afiliado'] || 'AFILIADO DIRECTO').toUpperCase().trim()
                         };
                         
-                        // Validar que tipoAfiliado sea uno de los valores permitidos
                         const tiposPermitidos = ['JUBILADO', 'PENSIONADO', 'AFILIADO DIRECTO', 'BENEFICIARIA PADRE', 'BENEFICIARIA(O) COMPAÑERA(O)', 'BENEFICIARIA(O) ESPOSA(O)', 'BENEFICIARIA(O) HIJO(A)'];
                         if (!tiposPermitidos.includes(pData.tipoAfiliado)) {
                             pData.tipoAfiliado = 'AFILIADO DIRECTO';
                         }
 
-                        if (!pData.dni) continue;
+                        if (!pData.dni) {
+                            processed++;
+                            setExcelProgress(p => ({ ...p, current: processed, percent: Math.round((processed / total) * 100), skipped: p.skipped + 1 }));
+                            continue;
+                        }
 
                         const existingPatient = patients.find(p => p.dni === pData.dni);
 
                         if (existingPatient) {
                             let needsUpdate = false;
                             const updates = {};
-                            // Solo rellenar campos vacíos: no modificar datos existentes
                             const allowedFields = ['nombre', 'telefono', 'familiar', 'telefonoFamiliar', 'nAfiliacion', 'direccion', 'descripcionMunicipio', 'tipoAfiliado'];
                             const checkAndFill = (field) => {
                                 if (!allowedFields.includes(field)) return;
@@ -7534,15 +7588,16 @@
                                 });
                             }
                         }
+                        processed++;
+                        setExcelProgress(p => ({ ...p, current: processed, percent: Math.round((processed / total) * 100), added, updated, skipped }));
                     }
 
                     if (typeof onReportExcelUpload === 'function') {
                         try { await onReportExcelUpload(addedList, updated); } catch (err) { console.warn('Reporte carga Excel:', err); }
                     }
 
-                    // Recargar SOLO la página actual (50) para ahorrar lecturas
                     await loadPatients(currentPage, true);
-                    
+                    setExcelProgress(p => ({ ...p, show: false }));
                     alert(`Resumen de Carga:\n\n✅ Pacientes Agregados: ${added}\n🔄 Pacientes Modificados: ${updated}\n⏭️ Pacientes Omitidos: ${skipped}`);
                 };
                 reader.readAsBinaryString(file);
@@ -7570,6 +7625,9 @@
                     if (editingPatientId) {
                         await onUpdatePatient(editingPatientId, formData); 
                         patientCache.clearPatientCache(editingPatientId);
+                        if ((userRole === 'admin' || userRole === 'superadmin') && (formData.agenteContactCenter || formData.usuarioRevisionAsignacion)) {
+                            window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'asignacion_admin', paciente: formData.nombre, dni: formData.dni, origen: (formData.agenteContactCenter ? 'Agente CC: ' + formData.agenteContactCenter : '') + (formData.usuarioRevisionAsignacion ? (formData.agenteContactCenter ? ' | ' : '') + 'Rev: ' + formData.usuarioRevisionAsignacion : '') } }));
+                        }
                     } else {
                         const created = await onAddPatient(formData);
                         patientCache.clearPatientCache();
@@ -7860,6 +7918,7 @@
                     await onSaveKit(editingKitId, finalData, selectedPatient.id, true);
                     patientCache.clearPatientCache(selectedPatient.id);
                     patientCache.clearCache(patientCache.KITS_CACHE_KEY);
+                    window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'asignacion', paciente: selectedPatient?.nombre, dni: selectedPatient?.dni, origen: 'Contact Center → Revisión y asignación' } }));
                     closeKitForm();
                 } catch (e) {
                     alert('Error al regresar kit: ' + e.message);
@@ -8111,6 +8170,7 @@
                     await onSaveKit(kit.id, { contactCenter: agente }, kit.patientId, true);
                     patientCache.clearPatientCache(kit.patientId);
                     patientCache.clearCache(patientCache.KITS_CACHE_KEY);
+                    window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'asignacion', paciente: p?.nombre || kit.nombre, dni: p?.dni || kit.dni, origen: 'Revisión y asignación → Contact Center' } }));
                 } catch (e) {
                     alert('Error al enviar a Contact Center: ' + (e?.message || e));
                 }
@@ -10887,6 +10947,25 @@ html +
             return (
                 <div className="glass-panel-futuro rounded-3xl shadow-soft flex flex-col h-full animate-in overflow-hidden">
                     <ConfirmModal isOpen={!!confirmData} onClose={()=>setConfirmData(null)} onConfirm={confirmData?.action} title={confirmData?.title} message={confirmData?.msg} />
+                    {excelProgress.show && (
+                        <Modal isOpen={true} onClose={()=>{}} title="Cargando Excel" maxWidth="max-w-md">
+                            <div className="p-6 space-y-4">
+                                <div className="text-center">
+                                    <div className="text-4xl font-mono font-bold text-turquoise-600 mb-2">{excelProgress.percent}%</div>
+                                    <p className="text-sm text-slate-600">Cargado {excelProgress.current} de {excelProgress.total} filas</p>
+                                    <p className="text-xs text-slate-500 mt-1">Faltan {Math.max(0, excelProgress.total - excelProgress.current)}</p>
+                                </div>
+                                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-turquoise-500 transition-all duration-300" style={{ width: `${excelProgress.percent}%` }} />
+                                </div>
+                                <div className="flex justify-between text-xs text-slate-500">
+                                    <span>Agregados: {excelProgress.added}</span>
+                                    <span>Modificados: {excelProgress.updated}</span>
+                                    <span>Omitidos: {excelProgress.skipped}</span>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
                     <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row gap-4 justify-between items-center bg-white/50 backdrop-blur-md">
                         <div className="flex items-center gap-4 w-full md:w-auto">
                             <div className="bg-turquoise-100 p-3 rounded-2xl text-turquoise-600">
@@ -11288,8 +11367,8 @@ html +
                             const formatearFechaR = (f) => { try { return new Date(f + 'T12:00:00').toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return f; } };
                             return (
                                 <div className="space-y-4">
-                                    <div className="p-4 bg-rose-50 rounded-2xl border border-rose-200">
-                                        <p className="text-sm text-rose-800 font-medium">
+                                    <div className="p-4 bg-violet-50 rounded-2xl border border-violet-200">
+                                        <p className="text-sm text-violet-800 font-medium">
                                             {isRevisionAsignacion ? 'Pacientes con medicamentos que no se enviaron (pendientes de renovar recetas). Agrupe por día para control.' : 'Pacientes pendientes de renovar recetas. Marque "Ya renovó recetas" cuando el paciente entregue las recetas.'}
                                         </p>
                                     </div>
@@ -11300,10 +11379,10 @@ html +
                                                 <p className="font-medium">No hay pacientes pendientes de renovar recetas</p>
                                             </div>
                                         ) : diasRenovar.map(({ fecha, kits: klist }) => (
-                                            <div key={fecha} className="bg-white rounded-2xl border-2 border-rose-200 overflow-hidden">
-                                                <div className="p-4 border-b border-rose-100 bg-rose-50/50">
+                                            <div key={fecha} className="bg-white rounded-2xl border-2 border-violet-200 overflow-hidden">
+                                                <div className="p-4 border-b border-violet-100 bg-violet-50/50">
                                                     <div className="font-bold text-slate-800">{formatearFechaR(fecha)}</div>
-                                                    <div className="text-xs text-rose-600 font-semibold">{klist.length} paciente(s)</div>
+                                                    <div className="text-xs text-violet-600 font-semibold">{klist.length} paciente(s)</div>
                                                 </div>
                                                 <div className="p-3 space-y-2 max-h-[200px] overflow-y-auto">
                                                     {klist.map(k => {
@@ -11313,7 +11392,7 @@ html +
                                                             <div key={k.id} className="p-2 bg-slate-50 rounded-lg text-xs">
                                                                 <div className="font-bold text-slate-800 truncate">{k.nombre || pt?.nombre || '—'}</div>
                                                                 <div className="text-slate-500 font-mono">{k.dni || pt?.dni || '—'}</div>
-                                                                <div className="text-rose-600 mt-1">No van: {medsNoVan || '—'}</div>
+                                                                <div className="text-violet-600 mt-1 font-semibold">Renovar recetas: {medsNoVan || '—'}</div>
                                                                 {isAgenteContactCenter && (
                                                                     <button
                                                                         type="button"
@@ -11516,17 +11595,29 @@ html +
                                     <div className="mb-4 flex flex-wrap justify-between items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
                                         <div className="flex items-center gap-3 flex-wrap">
                                             <span className="text-sm text-slate-600">
-                                                Mostrando {currentPatients.length ? (indexOfFirstPatient + 1) : 0}-{indexOfLastPatient} (Página {currentPage}) — {currentPatients.length} pacientes cargados
+                                                Total: {totalPatientCount != null ? totalPatientCount : `al menos ${totalEstimated}`} · Página {currentPage} de {totalPatientCount != null ? Math.max(1, Math.ceil(totalPatientCount / patientsPerPage)) : totalPagesEstimated} · Mostrando {currentPatients.length ? (indexOfFirstPatient + 1) : 0}-{indexOfLastPatient} ({currentPatients.length} en esta página)
                                             </span>
                                             {(userRole==='admin'||userRole==='superadmin') && (
                                                 <>
                                                     <button type="button" onClick={()=>setSelectedPatientIds(currentPatients.length ? new Set(currentPatients.map(x=>x.id).filter(Boolean)) : new Set())} className="text-[10px] font-bold text-turquoise-600 hover:text-turquoise-700">Seleccionar todo</button>
                                                     {selectedPatientIds.size > 0 && (
                                                         <button type="button" onClick={async ()=>{
-                                                            if (!confirm(`¿Eliminar ${selectedPatientIds.size} paciente(s) seleccionado(s)?`)) return;
-                                                            for (const id of selectedPatientIds) { await onDeletePatient(id); }
+                                                            if (!confirm(`¿Eliminar ${selectedPatientIds.size} paciente(s) seleccionado(s)? Esta acción no se puede deshacer.`)) return;
+                                                            let deleted = 0, errors = 0;
+                                                            for (const id of selectedPatientIds) {
+                                                                try {
+                                                                    await onDeletePatient(id);
+                                                                    patientCache.clearPatientCache(id);
+                                                                    deleted++;
+                                                                } catch (err) {
+                                                                    errors++;
+                                                                    console.warn('Error eliminando paciente', id, err);
+                                                                }
+                                                            }
                                                             setSelectedPatientIds(new Set());
                                                             await loadPatients(currentPage, true);
+                                                            if (totalPatientCount != null) setTotalPatientCount(prev => prev != null ? Math.max(0, prev - deleted) : null);
+                                                            alert(errors ? `Eliminados: ${deleted}. No se pudieron eliminar: ${errors}.` : `Se eliminaron ${deleted} paciente(s) correctamente.`);
                                                         }} className="px-3 py-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 text-xs font-bold">Eliminar ({selectedPatientIds.size})</button>
                                                     )}
                                                 </>
@@ -11546,7 +11637,7 @@ html +
                                                 Anterior
                                             </button>
                                             <span className="px-3 py-1 text-sm text-slate-700">
-                                                Página {currentPage}
+                                                Página {currentPage} de {totalPatientCount != null ? Math.max(1, Math.ceil(totalPatientCount / patientsPerPage)) : totalPagesEstimated}
                                             </span>
                                             <button
                                                 onClick={async () => {
@@ -14855,7 +14946,7 @@ Responde en formato JSON con esta estructura:
                 const sys = role || '';
                 const hasRevAsignacion = dep === 'farmacia' && roles.includes('revision y asignacion');
                 const isAgenteContactCenter = dep === 'contact center' && roles.includes('agente contact center');
-                const showNotifications = hasRevAsignacion || isAgenteContactCenter;
+                const showNotifications = hasRevAsignacion || isAgenteContactCenter || sys === 'admin' || sys === 'superadmin';
                 const showCalendario = sys === 'admin' || sys === 'superadmin' ||
                     (dep === 'contact center' && roles.includes('agente contact center')) ||
                     hasRevAsignacion;
@@ -14928,8 +15019,8 @@ Responde en formato JSON con esta estructura:
                 if (!showNotifications) return;
                 const handler = (e) => {
                     const d = e?.detail || {};
-                    const tipo = d.tipo || 'renovo';
-                    const n = { id: Date.now(), paciente: d.paciente || '—', dni: d.dni || '—', ts: new Date().toISOString(), tipo };
+                    const tipo = d.tipo || (e.type === 'notify-renovo' ? 'renovo' : 'asignacion');
+                    const n = { id: Date.now(), paciente: d.paciente || '—', dni: d.dni || '—', ts: new Date().toISOString(), tipo, origen: d.origen };
                     setNotifications(prev => [n, ...prev].slice(0, 50));
                     setFloatingNotifications(prev => [...prev, n]);
                     setTimeout(() => setFloatingNotifications(prev => prev.filter(x => x.id !== n.id)), 30000);
@@ -14938,7 +15029,8 @@ Responde en formato JSON con esta estructura:
                     }
                 };
                 window.addEventListener('notify-renovo', handler);
-                return () => window.removeEventListener('notify-renovo', handler);
+                window.addEventListener('notify', handler);
+                return () => { window.removeEventListener('notify-renovo', handler); window.removeEventListener('notify', handler); };
             }, [showNotifications]);
             const notificationsToday = useMemo(() => {
                 const today = new Date().toISOString().split('T')[0];
@@ -15145,9 +15237,12 @@ Responde en formato JSON con esta estructura:
                                                 {notificationsToday.length === 0 ? (
                                                     <p className="text-sm text-slate-400 py-6 text-center">Sin notificaciones hoy</p>
                                                 ) : notificationsToday.map(n => (
-                                                    <div key={n.id} className="p-3 mb-2 bg-green-50 rounded-xl border border-green-100 text-sm">
-                                                        <div className="font-bold text-green-800">Ya renovó recetas</div>
+                                                    <div key={n.id} className={`p-3 mb-2 rounded-xl border text-sm ${n.tipo === 'asignacion' ? 'bg-indigo-50 border-indigo-100' : n.tipo === 'asignacion_admin' ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'}`}>
+                                                        <div className={`font-bold ${n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
+                                                            {n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
+                                                        </div>
                                                         <div className="text-slate-600">{n.paciente} — {n.dni}</div>
+                                                        {n.origen && <div className="text-xs text-slate-500">{n.origen}</div>}
                                                     </div>
                                                 ))}
                                             </div>
@@ -15156,9 +15251,12 @@ Responde en formato JSON con esta estructura:
                                 </div>
                                 <div className="fixed bottom-4 right-4 z-[64] flex flex-col gap-2 max-w-[340px] pointer-events-none">
                                     {floatingNotifications.map(n => (
-                                        <div key={n.id} className="pointer-events-auto p-4 bg-white rounded-2xl shadow-xl border-l-4 border-green-500 animate-in">
-                                            <div className="font-bold text-green-800 text-sm">Ya renovó recetas</div>
+                                        <div key={n.id} className={`pointer-events-auto p-4 bg-white rounded-2xl shadow-xl border-l-4 animate-in ${n.tipo === 'asignacion' ? 'border-indigo-500' : n.tipo === 'asignacion_admin' ? 'border-amber-500' : 'border-green-500'}`}>
+                                            <div className={`font-bold text-sm ${n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
+                                                {n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
+                                            </div>
                                             <div className="text-slate-600 text-sm">{n.paciente} — {n.dni}</div>
+                                            {n.origen && <div className="text-xs text-slate-500">{n.origen}</div>}
                                         </div>
                                     ))}
                                 </div>
@@ -15194,9 +15292,12 @@ Responde en formato JSON con esta estructura:
                                                 {notificationsToday.length === 0 ? (
                                                     <p className="text-sm text-slate-400 py-6 text-center">Sin notificaciones hoy</p>
                                                 ) : notificationsToday.map(n => (
-                                                    <div key={n.id} className="p-3 mb-2 bg-green-50 rounded-xl border border-green-100 text-sm">
-                                                        <div className="font-bold text-green-800">Ya renovó recetas</div>
+                                                    <div key={n.id} className={`p-3 mb-2 rounded-xl border text-sm ${n.tipo === 'asignacion' ? 'bg-indigo-50 border-indigo-100' : n.tipo === 'asignacion_admin' ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'}`}>
+                                                        <div className={`font-bold ${n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
+                                                            {n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
+                                                        </div>
                                                         <div className="text-slate-600">{n.paciente} — {n.dni}</div>
+                                                        {n.origen && <div className="text-xs text-slate-500">{n.origen}</div>}
                                                     </div>
                                                 ))}
                                             </div>
@@ -15208,7 +15309,7 @@ Responde en formato JSON con esta estructura:
                             )}
                         </header>
                         <div className="mobile-content-area flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth relative z-10 min-w-0 mobile-content-pt">
-                            {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} kits={kits} currentUser={currentUserForBlocks} patients={patients} users={users} permissions={permissions} />}
+                            {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} kits={kits} currentUser={currentUserForBlocks} patients={patients} users={users} permissions={permissions} showNotifications={showNotifications} notificationsToday={notificationsToday} notificationPanelOpen={notificationPanelOpen} setNotificationPanelOpen={setNotificationPanelOpen} />}
                             {view === 'reports' && canViewReports && <ReportsBlock kits={kits} patients={patients} userRole={role} userName={userName} setView={setView} currentUser={currentUserForBlocks} users={users} db={db} />}
                             {view === 'calendario' && showCalendario && <CalendarioBlock kits={kits} patients={patients} setView={setView} currentUser={currentUserForBlocks} users={users} role={role} onSaveKit={saveKit} permissions={permissions} />}
                             {view === 'despacho' && showDespacho && <DespachoListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserForBlocks} users={users} role={role} />}
