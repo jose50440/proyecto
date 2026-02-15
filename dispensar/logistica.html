@@ -112,6 +112,12 @@
     </div>
     <style>@keyframes swSpin{to{transform:rotate(360deg)}}</style>
     <script type="text/babel" data-presets="env,react">
+        // UMD: React/ReactDOM desde window (evita error #130)
+        const React = window.React;
+        const ReactDOM = window.ReactDOM;
+        if (!React || !ReactDOM) {
+            console.error('React o ReactDOM no cargados. Verifica los scripts UMD de React 18.');
+        }
         window.firebase = window.firebase || {
             firestore: {
                 FieldValue: { serverTimestamp: () => ({ __supabaseServerTs: true }), delete: () => ({ __supabaseDelete: true }) },
@@ -1898,8 +1904,15 @@
             return <App />;
         };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<InitWrapper />);
+        const rootEl = document.getElementById('root');
+        if (rootEl && ReactDOM && typeof InitWrapper === 'function') {
+            const root = ReactDOM.createRoot(rootEl);
+            root.render(<InitWrapper />);
+        } else if (!rootEl) {
+            console.error('Elemento #root no encontrado.');
+        } else if (typeof InitWrapper !== 'function') {
+            console.error('InitWrapper no definido. Revisa el orden de definición.');
+        }
 
         // PWA - Service Worker (registro diferido)
         if ('serviceWorker' in navigator) {
