@@ -337,7 +337,7 @@
                             >
                                 <div className={`absolute top-0 right-0 w-24 h-24 ${c.color} opacity-10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`}></div>
                                 <div className={`w-12 h-12 rounded-2xl ${c.color} flex items-center justify-center text-white mb-4 shadow-md group-hover:scale-110 transition-transform`}>
-                                    <c.icon size={24} />
+                                    {c.icon && typeof c.icon === 'function' ? React.createElement(c.icon, { size: 24 }) : null}
                                 </div>
                                 <h4 className="font-bold text-lg text-slate-800 mb-1 group-hover:text-turquoise-600 transition-colors">{c.label}</h4>
                                 <p className="text-xs text-slate-400">{c.desc}</p>
@@ -716,10 +716,11 @@
                 );
             };
 
-            const renderRowDespachoLogistica = (kit) => {
+            const renderRowDespachoLogistica = (kit, index = 0) => {
+                if (!kit) return null;
                 const pt = (patients||[]).find(p => p.id===kit.patientId || (p.dni&&kit.dni&&String(p.dni).trim()===String(kit.dni).trim()));
                 return (
-                    <div key={kit.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4 border-b border-slate-100 last:border-b-0">
+                    <div key={kit.id || `kit-${index}`} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4 border-b border-slate-100 last:border-b-0">
                         <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                                 <span className="font-bold text-slate-800">{kit.nombre||pt?.nombre||'—'}</span>
@@ -775,11 +776,12 @@
                 );
             };
 
-            const renderRowBitacora = (kit) => {
+            const renderRowBitacora = (kit, index = 0) => {
+                if (!kit) return null;
                 const pt = (patients||[]).find(p => p.id===kit.patientId || (p.dni&&kit.dni&&String(p.dni).trim()===String(kit.dni).trim()));
                 const isRuta = (kit.deliveryMode||'').toLowerCase()==='ruta';
                 return (
-                    <div key={kit.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4 border-b border-slate-100 last:border-b-0">
+                    <div key={kit.id || `bitacora-${index}`} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4 border-b border-slate-100 last:border-b-0">
                         <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                                 <span className="font-bold text-slate-800">{kit.nombre||pt?.nombre||'—'}</span>
@@ -1035,7 +1037,7 @@
                                     )}
                                 </div>
                                 <div className="divide-y divide-slate-100 max-h-[50vh] overflow-y-auto rounded-xl border border-slate-100">
-                                    {kitsBitacoraLogisticaDiaFiltrados.map(k=>renderRowBitacora(k))}
+                                    {(kitsBitacoraLogisticaDiaFiltrados||[]).filter(Boolean).map((k,i)=>renderRowBitacora(k,i))}
                                 </div>
                                 <div className="flex justify-end pt-2">
                                     <button onClick={()=>{setBitacoraFechaAbierta(null);setBitacoraModalSearch('');}} className="btn-list-action px-6 bg-slate-600 text-white hover:bg-slate-700 transition-colors btn-hover-effect">Cerrar</button>
@@ -1071,8 +1073,8 @@
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto">
                                     {motoristasFiltrados.length === 0 ? (
                                         <div className="col-span-full p-8 text-center text-slate-500">Sin resultados</div>
-                                    ) : motoristasFiltrados.map(({ motoristaKey, nombre, kits }) => (
-                                        <button key={motoristaKey} onClick={()=>setDespachoRutaMotoristaModal({ fecha: despachoRutaModalAbierto, motoristaKey, nombre })} className="flex items-center gap-3 p-4 rounded-2xl border-2 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/50 transition-all text-left btn-hover-effect group min-h-[72px]">
+                                    ) : motoristasFiltrados.map(({ motoristaKey, nombre, kits }, idx) => (
+                                        <button key={motoristaKey || `m-${idx}`} onClick={()=>setDespachoRutaMotoristaModal({ fecha: despachoRutaModalAbierto, motoristaKey, nombre })} className="flex items-center gap-3 p-4 rounded-2xl border-2 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/50 transition-all text-left btn-hover-effect group min-h-[72px]">
                                             <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-700 group-hover:bg-emerald-200"><Icons.Users size={24}/></div>
                                             <div className="min-w-0 flex-1">
                                                 <div className="font-bold text-slate-800 truncate">{nombre}</div>
@@ -1113,7 +1115,7 @@
                                     <span className="text-sm text-slate-500">{kitsFiltrados.length !== kits.length ? `${kitsFiltrados.length} de ${kits.length}` : `${kits.length} kit(s)`}</span>
                                 </div>
                                 <div className="divide-y divide-slate-100 max-h-[50vh] overflow-y-auto rounded-xl border border-slate-100">
-                                    {kitsFiltrados.map(k=>renderRowDespachoLogistica(k))}
+                                    {(kitsFiltrados||[]).filter(Boolean).map((k,i)=>renderRowDespachoLogistica(k,i))}
                                 </div>
                                 <div className="flex justify-end pt-2">
                                     <button onClick={()=>{setDespachoRutaMotoristaModal(null);setDespachoModalSearch('');}} className="btn-list-action px-6 bg-slate-600 text-white hover:bg-slate-700 transition-colors btn-hover-effect">Cerrar</button>
@@ -1146,7 +1148,7 @@
                                     <span className="text-sm text-slate-500">{kitsFiltrados.length !== kitsDia.length ? `${kitsFiltrados.length} de ${kitsDia.length}` : `${kitsDia.length} kit(s)`}</span>
                                 </div>
                                 <div className="divide-y divide-slate-100 max-h-[50vh] overflow-y-auto rounded-xl border border-slate-100">
-                                    {kitsFiltrados.map(k=>renderRowDespachoLogistica(k))}
+                                    {(kitsFiltrados||[]).filter(Boolean).map((k,i)=>renderRowDespachoLogistica(k,i))}
                                 </div>
                                 <div className="flex justify-end pt-2">
                                     <button onClick={()=>{setDespachoVentanillaModalAbierto(null);setDespachoModalSearch('');}} className="btn-list-action px-6 bg-slate-600 text-white hover:bg-slate-700 transition-colors btn-hover-effect">Cerrar</button>
@@ -1503,7 +1505,9 @@
             const currentUserForBlocks = { name: userName, role: role, ...(currentUserData || {}) };
             const stats = { totalKits: kits.length, todayKits: kits.filter(k => k.fechaArmado === new Date().toISOString().split('T')[0]).length };
 
-            const NavItem = ({ id, label, icon: Icon }) => (
+            const NavItem = ({ id, label, icon: Icon }) => {
+                if (!Icon || typeof Icon !== 'function') return null;
+                return (
                 <button
                     onClick={() => { setView(id); setMobileMenuOpen(false); }}
                     className={`w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl transition-all font-bold group relative overflow-hidden btn-hover-effect touch-manipulation ${view === id ? 'bg-gradient-to-r from-turquoise-500 to-turquoise-600 text-white shadow-lg' : 'hover:bg-turquoise-800/50 text-turquoise-300'} ${sidebarCollapsed ? 'justify-center' : ''}`}
@@ -1513,7 +1517,8 @@
                         {label}
                     </span>
                 </button>
-            );
+                );
+            };
 
             return (
                 <div className="app-layout flex h-full w-full min-h-0 overflow-hidden relative" data-theme="nueva">
