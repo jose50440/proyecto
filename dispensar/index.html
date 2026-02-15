@@ -15034,7 +15034,26 @@ Responde en formato JSON con esta estructura:
                 }
             }, [view, role, showCalendario, showDespacho, onlyDespacho, showOperaciones, showCalidad, showLogistica, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo]);
             useEffect(() => {
+                let unlocked = false;
+                const unlock = () => {
+                    if (unlocked) return;
+                    unlocked = true;
+                    try {
+                        const a = new Audio('./alertadash.mp3');
+                        a.volume = 0.001;
+                        a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+                    } catch (_) {}
+                };
+                document.addEventListener('click', unlock, { once: true });
+                document.addEventListener('touchstart', unlock, { once: true });
+                return () => { document.removeEventListener('click', unlock); document.removeEventListener('touchstart', unlock); };
+            }, []);
+            useEffect(() => {
                 if (!showNotifications) return;
+                const playSound = (tipo) => {
+                    const src = tipo === 'kit_entregado' ? './alertaentrega.mp3' : './alertadash.mp3';
+                    try { const a = new Audio(src); a.volume = 1; a.play().catch(() => {}); } catch (_) {}
+                };
                 const handler = (e) => {
                     const d = e?.detail || {};
                     const tipo = d.tipo || (e.type === 'notify-renovo' ? 'renovo' : 'asignacion');
@@ -15042,11 +15061,8 @@ Responde en formato JSON con esta estructura:
                     setNotifications(prev => [n, ...prev].slice(0, 50));
                     setFloatingNotifications(prev => [...prev, n]);
                     setTimeout(() => setFloatingNotifications(prev => prev.filter(x => x.id !== n.id)), 30000);
-                    if (tipo === 'kit_entregado') {
-                        try { const a = new Audio('./alertaentrega.mp3'); a.volume = 1; a.play().catch(() => {}); } catch (_) {}
-                    } else if (d.skipSound !== true) {
-                        try { const a = new Audio('./alertadash.mp3'); a.volume = 1; a.play().catch(() => {}); } catch (_) {}
-                    }
+                    if (tipo === 'kit_entregado') playSound('kit_entregado');
+                    else if (d.skipSound !== true) playSound('asignacion');
                 };
                 window.addEventListener('notify-renovo', handler);
                 window.addEventListener('notify', handler);

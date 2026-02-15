@@ -149,6 +149,21 @@
 
         const { useState, useEffect, useMemo, useRef } = React;
 
+        (function audioUnlock() {
+            let unlocked = false;
+            const unlock = () => {
+                if (unlocked) return;
+                unlocked = true;
+                try {
+                    const a = new Audio('./alertaentrega.mp3');
+                    a.volume = 0.001;
+                    a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+                } catch (_) {}
+            };
+            document.addEventListener('click', unlock, { once: true });
+            document.addEventListener('touchstart', unlock, { once: true });
+        })();
+
         const NullComponent = () => null;
         const safeCreateElement = (Comp, props) => (Comp != null && typeof Comp === 'function') ? React.createElement(Comp, props) : null;
         const SafeIcon = ({ icon: IconComp, ...rest }) => (IconComp != null && typeof IconComp === 'function') ? React.createElement(IconComp, rest) : null;
