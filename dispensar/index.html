@@ -6524,7 +6524,7 @@
             const [showPatientForm, setShowPatientForm] = useState(false);
             const [editingPatientId, setEditingPatientId] = useState(null);
             const [confirmData, setConfirmData] = useState(null);
-            const [activePatientTab, setActivePatientTab] = useState('general'); // 'general' | 'asignados' | 'bitacora' | 'renovar'
+            const [activePatientTab, setActivePatientTab] = useState('general'); // 'general' | 'asignados' | 'bitacora' | 'renovar' | 'medsNoVan'
             const [bitacoraRevTab, setBitacoraRevTab] = useState('creados');
             const [bitacoraRevCarpetasSearch, setBitacoraRevCarpetasSearch] = useState('');
             const [bitacoraRevFechaAbierta, setBitacoraRevFechaAbierta] = useState(null);
@@ -11045,12 +11045,20 @@ html +
                                     </button>
                                 )}
                                 {(isRevisionAsignacion || isAgenteContactCenter) && (
-                                    <button 
-                                        onClick={() => { setActivePatientTab('renovar'); setSelectedFolderKey(null); setSelectedPatient(null); setSelectedPatientFullData(null); setRenovarFechaAbierta(null); setRenovarPatientSeleccionado(null); }} 
-                                        className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${activePatientTab === 'renovar' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-                                    >
-                                        Renovar Recetas
-                                    </button>
+                                    <>
+                                        <button 
+                                            onClick={() => { setActivePatientTab('renovar'); setSelectedFolderKey(null); setSelectedPatient(null); setSelectedPatientFullData(null); setRenovarFechaAbierta(null); setRenovarPatientSeleccionado(null); }} 
+                                            className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${activePatientTab === 'renovar' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                                        >
+                                            Renovar Recetas
+                                        </button>
+                                        <button 
+                                            onClick={() => { setActivePatientTab('medsNoVan'); setSelectedFolderKey(null); setSelectedPatient(null); setSelectedPatientFullData(null); setRenovarFechaAbierta(null); setRenovarPatientSeleccionado(null); }} 
+                                            className={`px-4 py-3 text-sm font-bold border-b-2 transition-all ${activePatientTab === 'medsNoVan' ? 'border-amber-500 text-amber-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                                        >
+                                            Meds. que no van
+                                        </button>
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -11336,48 +11344,57 @@ html +
                                 </Modal>
                             )}
                             </>
-                        ) : activePatientTab === 'renovar' && (isRevisionAsignacion || isAgenteContactCenter) ? (() => {
-                            const medsQueRequierenRenovar = (m) => (m.dispensar === false) || (m.hayQueRenovarRecetas === true);
-                            const kitsConMedsRenovar = (kits || []).filter(k => {
+                        ) : (activePatientTab === 'renovar' || activePatientTab === 'medsNoVan') && (isRevisionAsignacion || isAgenteContactCenter) ? (() => {
+                            const esRenovar = activePatientTab === 'renovar';
+                            const medsQueRequierenRenovar = (m) => m.hayQueRenovarRecetas === true;
+                            const medsQueNoVanSinRenovar = (m) => m.dispensar === false && !m.hayQueRenovarRecetas;
+                            const filtroMeds = esRenovar ? medsQueRequierenRenovar : medsQueNoVanSinRenovar;
+                            const kitsConMeds = (kits || []).filter(k => {
                                 const meds = k.medicamentos || [];
-                                return meds.some(medsQueRequierenRenovar) && !k.yaRenovoRecetas;
+                                if (!meds.some(filtroMeds)) return false;
+                                if (esRenovar && k.yaRenovoRecetas) return false;
+                                return true;
                             });
-                            const renovarPorFecha = {};
-                            kitsConMedsRenovar.forEach(k => {
+                            const porFecha = {};
+                            kitsConMeds.forEach(k => {
                                 const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
-                                const medsDelKit = (k.medicamentos || []).filter(medsQueRequierenRenovar);
+                                const medsDelKit = (k.medicamentos || []).filter(filtroMeds);
                                 if (medsDelKit.length === 0) return;
                                 medsDelKit.forEach(med => {
                                     const f = (med.fechaIndicadaRenovar || k.fechaArmado || new Date().toISOString().split('T')[0]).toString().trim().slice(0, 10);
-                                    if (!renovarPorFecha[f]) renovarPorFecha[f] = {};
+                                    if (!porFecha[f]) porFecha[f] = {};
                                     const key = (k.patientId || pt?.id) + '_' + k.id;
-                                    if (!renovarPorFecha[f][key]) renovarPorFecha[f][key] = { kit: k, pt, meds: [] };
-                                    renovarPorFecha[f][key].meds.push({ med, hayQueRenovar: !!med.hayQueRenovarRecetas, fecha: med.fechaIndicadaRenovar || k.fechaArmado || f });
+                                    if (!porFecha[f][key]) porFecha[f][key] = { kit: k, pt, meds: [] };
+                                    porFecha[f][key].meds.push({ med, hayQueRenovar: !!med.hayQueRenovarRecetas, fecha: med.fechaIndicadaRenovar || k.fechaArmado || f });
                                 });
                             });
-                            const diasRenovar = Object.entries(renovarPorFecha).sort((a, b) => b[0].localeCompare(a[0])).map(([fecha, byKey]) => ({
+                            const diasLista = Object.entries(porFecha).sort((a, b) => b[0].localeCompare(a[0])).map(([fecha, byKey]) => ({
                                 fecha,
                                 pacientes: Object.values(byKey),
                                 count: Object.keys(byKey).length
                             }));
                             const formatearFechaR = (f) => { try { return new Date(f + 'T12:00:00').toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return f; } };
-                            const carpetaActual = diasRenovar.find(d => d.fecha === renovarFechaAbierta);
+                            const carpetaActual = diasLista.find(d => d.fecha === renovarFechaAbierta);
                             const pacienteActual = renovarPatientSeleccionado;
                             return (
                                 <div className="space-y-4">
                                     <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/80">
                                         <p className="text-sm text-slate-700 font-medium">
-                                            Pacientes pendientes de renovar recetas. <span className="text-rose-600 font-bold">Rosa:</span> hay que renovar. <span className="text-amber-600 font-bold">Ámbar:</span> no hay / observaciones. Click en día → paciente → ver medicamentos con fecha indicada.
+                                            {esRenovar ? (
+                                                <>Pacientes pendientes de renovar recetas. <span className="text-rose-600 font-bold">Rosa:</span> hay que renovar. Click en día → paciente → ver medicamentos con fecha indicada.</>
+                                            ) : (
+                                                <>Medicamentos que no van (dispensar: no) y que no están marcados como renovar recetas. <span className="text-amber-600 font-bold">Ámbar:</span> no hay / observaciones. Solo informativo.</>
+                                            )}
                                         </p>
                                     </div>
                                     {!renovarFechaAbierta ? (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto">
-                                            {diasRenovar.length === 0 ? (
+                                            {diasLista.length === 0 ? (
                                                 <div className="col-span-full p-12 text-center text-slate-500">
                                                     <Icons.Folder size={48} className="mx-auto mb-3 opacity-40"/>
-                                                    <p className="font-medium">No hay pacientes pendientes de renovar recetas</p>
+                                                    <p className="font-medium">{esRenovar ? 'No hay pacientes pendientes de renovar recetas' : 'No hay medicamentos que no van (sin marcar renovar)'}</p>
                                                 </div>
-                                            ) : diasRenovar.map(({ fecha, count }) => (
+                                            ) : diasLista.map(({ fecha, count }) => (
                                                 <button key={fecha} onClick={() => setRenovarFechaAbierta(fecha)} className="bg-white rounded-2xl border-2 border-violet-200 hover:border-violet-400 overflow-hidden text-left transition-all group">
                                                     <div className="p-4 border-b border-violet-100 bg-violet-50/50">
                                                         <div className="font-bold text-slate-800">{formatearFechaR(fecha)}</div>
@@ -11401,9 +11418,9 @@ html +
                                                         <button onClick={() => setRenovarPatientSeleccionado({ kit, pt, meds })} className="w-full text-left">
                                                             <div className="font-bold text-slate-800">{kit?.nombre || pt?.nombre || '—'}</div>
                                                             <div className="text-slate-500 font-mono text-xs">{kit?.dni || pt?.dni || '—'}</div>
-                                                            <div className="text-xs text-violet-600 mt-1">{meds.length} medicamento(s) a renovar</div>
+                                                            <div className="text-xs text-violet-600 mt-1">{meds.length} medicamento(s){esRenovar ? ' a renovar' : ' que no van'}</div>
                                                         </button>
-                                                        {isAgenteContactCenter && (
+                                                        {esRenovar && isAgenteContactCenter && (
                                                             <button type="button" onClick={async (e) => { e.stopPropagation(); if (!confirm(`¿Confirmar que ${kit?.nombre || pt?.nombre} ya renovó las recetas?`)) return; try { if (onSaveKit) await onSaveKit(kit.id, { yaRenovoRecetas: true, fechaYaRenovo: new Date().toISOString().split('T')[0] }, kit.patientId, true); window.dispatchEvent(new CustomEvent('notify-renovo', { detail: { paciente: kit?.nombre || pt?.nombre, dni: kit?.dni || pt?.dni } })); setRenovarPatientSeleccionado(null); } catch (e2) { alert('Error: ' + (e2?.message || e2)); } }} className="mt-2 w-full py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700">
                                                                 Ya renovó recetas
                                                             </button>
@@ -11431,7 +11448,7 @@ html +
                                                     </div>
                                                 ))}
                                             </div>
-                                            {isAgenteContactCenter && (
+                                            {esRenovar && isAgenteContactCenter && (
                                                 <button type="button" onClick={async () => { if (!confirm(`¿Confirmar que ${pacienteActual.kit?.nombre || pacienteActual.pt?.nombre} ya renovó las recetas?`)) return; try { if (onSaveKit) await onSaveKit(pacienteActual.kit.id, { yaRenovoRecetas: true, fechaYaRenovo: new Date().toISOString().split('T')[0] }, pacienteActual.kit.patientId, true); window.dispatchEvent(new CustomEvent('notify-renovo', { detail: { paciente: pacienteActual.kit?.nombre || pacienteActual.pt?.nombre, dni: pacienteActual.kit?.dni || pacienteActual.pt?.dni } })); setRenovarPatientSeleccionado(null); } catch (e) { alert('Error: ' + (e?.message || e)); } }} className="mt-4 w-full py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700">
                                                     Ya renovó recetas
                                                 </button>
