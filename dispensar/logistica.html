@@ -93,6 +93,12 @@
         .modal-animate { animation: modalIn 0.2s ease-out forwards; }
         .mobile-modal-top { top: 56px; }
         .icon-elegant { stroke-width: 1.75; }
+        /* Pantalla dividida: modales y formularios se adaptan a ventanas pequeñas */
+        @media (max-width: 1199px) {
+            .modal-split-friendly { max-width: calc(100vw - 2rem) !important; }
+            .app-layout { min-w: 0; }
+            .main-col { min-w: 0; }
+        }
     </style>
 </head>
 <body class="text-slate-600 h-screen overflow-hidden selection:bg-turquoise-200 selection:text-turquoise-900">
@@ -141,7 +147,7 @@
             return firebaseInitPromise;
         };
 
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
         const NullComponent = () => null;
         const safeCreateElement = (Comp, props) => (Comp != null && typeof Comp === 'function') ? React.createElement(Comp, props) : null;
@@ -211,7 +217,7 @@
             if (!isOpen) return null;
             return (
                 <div className="mobile-modal-top fixed left-0 right-0 bottom-0 top-14 md:top-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-                    <div className={`bg-white rounded-2xl shadow-2xl w-full ${maxWidth} overflow-hidden flex flex-col max-h-[90vh] modal-animate`}>
+                    <div className={`bg-white rounded-2xl shadow-2xl w-full ${maxWidth} overflow-hidden flex flex-col max-h-[90vh] modal-animate modal-split-friendly`}>
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                             <h3 className="font-bold text-lg text-slate-800 brand-font">{title}</h3>
                             <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full"><Icons.X size={20}/></button>
@@ -486,6 +492,7 @@
                 try {
                     await onSaveKit(trabajarKit.id, payload, trabajarKit.patientId, true);
                     setTrabajarGuardado(true);
+                    try { const a = new Audio('./alertaentrega.mp3'); a.volume = 1; a.play().catch(() => {}); } catch (_) {}
                     setTimeout(cerrarTrabajar, 600);
                 } catch (err) { alert('Error: ' + (err?.message || err)); }
             };
@@ -1442,6 +1449,7 @@
             const [patients, setPatients] = useState([]);
             const [users, setUsers] = useState([]);
             const [cacheManager] = useState(new CacheManager());
+            const prevKitsEntregadoRef = useRef(null);
 
             const loadKits = async () => {
                 try {
@@ -1497,6 +1505,17 @@
                 if (firebaseInitialized && db) {
                     const unsub = db.collection('prod_kits').onSnapshot(s => {
                         const data = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => new Date(b.fechaArmado||0) - new Date(a.fechaArmado||0));
+                        const prev = prevKitsEntregadoRef.current;
+                        if (prev !== null) {
+                            data.forEach(kit => {
+                                const fe = (kit.fechaEntregaKit || '').toString().trim();
+                                const had = (prev[kit.id] || '').toString().trim();
+                                if (fe && fe !== 'undefined' && fe !== 'null' && !had) {
+                                    try { const a = new Audio('./alertaentrega.mp3'); a.volume = 1; a.play().catch(() => {}); } catch (_) {}
+                                }
+                            });
+                        }
+                        prevKitsEntregadoRef.current = Object.fromEntries(data.map(k => [k.id, (k.fechaEntregaKit || '').toString().trim()]));
                         setKits(data);
                         cacheManager.saveKits(data);
                     });

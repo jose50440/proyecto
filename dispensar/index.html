@@ -560,6 +560,12 @@
             stroke-width: 1.75;
             -webkit-font-smoothing: antialiased;
         }
+        /* Pantalla dividida: modales y formularios se adaptan a ventanas pequeñas */
+        @media (max-width: 1200px) {
+            .modal-split-friendly { max-width: calc(100vw - 2rem) !important; }
+        }
+        .app-layout { min-width: 0; }
+        .main-col { min-width: 0; }
     </style>
 </head>
 <body class="text-slate-600 h-screen overflow-hidden selection:bg-turquoise-200 selection:text-turquoise-900">
@@ -923,7 +929,7 @@
             if (!isOpen) return null;
             return (
                 <div className="mobile-modal-top fixed inset-0 z-50 flex items-stretch md:items-center md:justify-center md:p-4 bg-slate-900/60 backdrop-blur-sm animate-in overflow-hidden" style={{ paddingTop: 'max(56px, env(safe-area-inset-top))', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-                    <div className={`bg-white md:rounded-2xl shadow-2xl w-full ${maxWidth} overflow-hidden flex flex-col md:max-h-[90vh] modal-animate md:my-auto flex-1 md:flex-initial mobile-modal-full`}>
+                    <div className={`bg-white md:rounded-2xl shadow-2xl w-full min-w-0 ${maxWidth} overflow-hidden flex flex-col md:max-h-[90vh] modal-animate md:my-auto flex-1 md:flex-initial mobile-modal-full modal-split-friendly`}>
                         <div className="px-4 md:px-6 py-3 md:py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0 min-h-[52px]">
                             <h3 className="font-bold text-base md:text-lg text-slate-800 brand-font truncate pr-2">{title}</h3>
                             <button onClick={onClose} className="p-2 -mr-2 min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-slate-200 rounded-full text-slate-500 transition-colors touch-manipulation" aria-label="Cerrar"><Icons.X size={22}/></button>
@@ -1559,7 +1565,7 @@
         };
 
         // --- BLOCK: DASHBOARD ---
-        const DashboardBlock = ({ setView, stats, userName, role, kits, currentUser, patients = [], users = [], permissions, showNotifications, notificationsToday = [], notificationPanelOpen, setNotificationPanelOpen }) => { 
+        const DashboardBlock = ({ setView, stats, userName, role, kits, currentUser, patients = [], users = [], permissions }) => { 
             const [time, setTime] = useState(new Date());
             const [weather, setWeather] = useState({ temp: null, humidity: null, desc: '', code: 0, isDay: 1, updatedAt: null, loading: true, error: null });
             const codes = { 0:'Despejado',1:'Mayormente despejado',2:'Parcialmente nublado',3:'Nublado',45:'Neblina',48:'Neblina helada',51:'Llovizna ligera',53:'Llovizna',55:'Llovizna densa',61:'Lluvia ligera',63:'Lluvia',65:'Lluvia fuerte',71:'Nieve ligera',73:'Nieve',75:'Nieve fuerte',77:'Granizo',80:'Chubascos ligeros',81:'Chubascos',82:'Chubascos fuertes',85:'Nevadas ligeras',86:'Nevadas fuertes',95:'Tormenta',96:'Tormenta con granizo',99:'Tormenta fuerte' };
@@ -1766,34 +1772,6 @@
                             <div className="absolute right-0 top-0 h-full w-1/2 bg-white/10 skew-x-12 transform origin-bottom-right"></div>
                         </div>
                         <div className="relative flex justify-center items-center p-0 m-0 -my-0.5">
-                            {showNotifications && (
-                                <div className="absolute top-0 left-0 z-10 flex flex-col items-start">
-                                    <button onClick={() => setNotificationPanelOpen && setNotificationPanelOpen(!notificationPanelOpen)} className="relative p-2.5 rounded-xl bg-white/95 shadow-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center" aria-label="Notificaciones">
-                                        <Icons.Bell size={22}/>
-                                        {notificationsToday?.length > 0 && (
-                                            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center px-1">{notificationsToday.length > 99 ? '99+' : notificationsToday.length}</span>
-                                        )}
-                                    </button>
-                                    {notificationPanelOpen && (
-                                        <div className="absolute left-0 top-full mt-2 w-[320px] max-h-[400px] overflow-y-auto bg-white rounded-2xl shadow-xl border border-slate-200 z-[70]">
-                                            <div className="p-3 border-b border-slate-100 font-bold text-slate-800">Notificaciones del día</div>
-                                            <div className="p-2">
-                                                {(!notificationsToday || notificationsToday.length === 0) ? (
-                                                    <p className="text-sm text-slate-400 py-6 text-center">Sin notificaciones hoy</p>
-                                                ) : notificationsToday.map(n => (
-                                                    <div key={n.id} className={`p-3 mb-2 rounded-xl border text-sm ${n.tipo === 'asignacion' ? 'bg-indigo-50 border-indigo-100' : n.tipo === 'asignacion_admin' ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'}`}>
-                                                        <div className={`font-bold ${n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
-                                                            {n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
-                                                        </div>
-                                                        <div className="text-slate-600">{n.paciente || '—'} — {n.dni || '—'}</div>
-                                                        {n.origen && <div className="text-xs text-slate-500">{n.origen}</div>}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
                             <img src="./gifdashboard.gif" alt="" className="h-[calc(12rem+10mm)] md:h-[calc(15rem+10mm)] lg:h-[calc(18rem+10mm)] w-auto object-contain rounded-xl block" />
                         </div>
                     </div>
@@ -7918,7 +7896,6 @@
                     await onSaveKit(editingKitId, finalData, selectedPatient.id, true);
                     patientCache.clearPatientCache(selectedPatient.id);
                     patientCache.clearCache(patientCache.KITS_CACHE_KEY);
-                    window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'asignacion', paciente: selectedPatient?.nombre, dni: selectedPatient?.dni, origen: 'Contact Center → Revisión y asignación' } }));
                     closeKitForm();
                 } catch (e) {
                     alert('Error al regresar kit: ' + e.message);
@@ -8170,7 +8147,6 @@
                     await onSaveKit(kit.id, { contactCenter: agente }, kit.patientId, true);
                     patientCache.clearPatientCache(kit.patientId);
                     patientCache.clearCache(patientCache.KITS_CACHE_KEY);
-                    window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'asignacion', paciente: p?.nombre || kit.nombre, dni: p?.dni || kit.dni, origen: 'Revisión y asignación → Contact Center' } }));
                 } catch (e) {
                     alert('Error al enviar a Contact Center: ' + (e?.message || e));
                 }
@@ -12945,6 +12921,9 @@ html +
             const [cacheManager] = useState(new CacheManager());
             const [firebaseStatus, setFirebaseStatus] = useState('Conectando...');
             const [isFirebaseReady, setIsFirebaseReady] = useState(firebaseInitialized);
+            const prevKitsRef = useRef(null);
+            const notificationMetaRef = useRef({ userName: '', isCC: false, isRevision: false });
+            const patientsRef = useRef([]);
             
             const [rutaTemplateCurrent, setRutaTemplateCurrent] = useState(null);
             
@@ -14579,6 +14558,35 @@ Responde en formato JSON con esta estructura:
                             s => {
                                 const data = s.docs.map(d => ({ id: d.id, ...d.data() }))
                                     .sort((a, b) => new Date(b.fechaArmado) - new Date(a.fechaArmado));
+                                const prev = prevKitsRef.current;
+                                const meta = notificationMetaRef.current;
+                                const patientsList = patientsRef.current || [];
+                                const norm = (x) => (x || '').toString().trim().toLowerCase();
+                                if (prev !== null && meta.userName) {
+                                    data.forEach(kit => {
+                                        const p = prev[kit.id] || {};
+                                        const kitCC = norm(kit.contactCenter);
+                                        const kitDevuelto = !!kit.devueltoPorContactCenter;
+                                        const kitFE = (kit.fechaEntregaKit || '').toString().trim();
+                                        if (meta.isCC && kitCC === meta.userName && (p.contactCenter || '') !== kitCC) {
+                                            window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'asignacion', paciente: kit.nombre || '—', dni: kit.dni || '—', origen: 'Revisión y asignación → Contact Center' } }));
+                                        }
+                                        if (kitDevuelto && !p.devueltoPorContactCenter) {
+                                            const pt = patientsList.find(px => px.id === kit.patientId);
+                                            const revAsig = norm(pt?.usuarioRevisionAsignacion);
+                                            if (meta.isRevision && revAsig === meta.userName) {
+                                                window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'asignacion', paciente: kit.nombre || pt?.nombre || '—', dni: kit.dni || pt?.dni || '—', origen: 'Contact Center → Revisión y asignación' } }));
+                                            }
+                                        }
+                                        if (kitFE && !(p.fechaEntregaKit || '').toString().trim()) {
+                                            if (meta.isCC && kitCC === meta.userName) {
+                                                const donde = (kit.deliveryMode || '').toLowerCase() === 'ruta' ? 'Ruta' : 'Ventanilla';
+                                                window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'kit_entregado', paciente: kit.nombre || '—', dni: kit.dni || '—', origen: 'Entregado en ' + donde } }));
+                                            }
+                                        }
+                                    });
+                                }
+                                prevKitsRef.current = Object.fromEntries(data.map(k => [k.id, { contactCenter: norm(k.contactCenter), devueltoPorContactCenter: !!k.devueltoPorContactCenter, fechaEntregaKit: (k.fechaEntregaKit || '').toString().trim() }]));
                                 setKits(data);
                                 cacheManager.saveKits(data);
                             },
@@ -14976,6 +14984,16 @@ Responde en formato JSON con esta estructura:
                 };
             }, [currentUserData, role]);
             const { showCalendario, showDespacho, onlyDespacho, showOperaciones, showCalidad, showLogistica, canViewReports, canViewConfig, canViewPacientes, showBitacoraTrabajo, showNotifications } = permissions;
+            useEffect(() => {
+                const dep = (currentUserData?.departamento || '').toLowerCase();
+                const roles = (currentUserData?.rolesDepartamento || []).map(r => String(r || '').toLowerCase());
+                notificationMetaRef.current = {
+                    userName: (userName || '').toString().trim().toLowerCase(),
+                    isCC: dep === 'contact center' && roles.some(r => r === 'agente contact center'),
+                    isRevision: dep === 'farmacia' && roles.some(r => r === 'revision y asignacion')
+                };
+            }, [currentUserData, userName]);
+            useEffect(() => { patientsRef.current = patients; }, [patients]);
             const currentUserForBlocks = { name: userName, role: role, ...(currentUserData || {}) };
             const openTrabajarFromPacientes = (kit) => { if (kit?.id) { setPendingTrabajarKitId(kit.id); setView('operaciones'); } };
             const clearPendingTrabajarKit = () => setPendingTrabajarKitId(null);
@@ -15024,7 +15042,9 @@ Responde en formato JSON con esta estructura:
                     setNotifications(prev => [n, ...prev].slice(0, 50));
                     setFloatingNotifications(prev => [...prev, n]);
                     setTimeout(() => setFloatingNotifications(prev => prev.filter(x => x.id !== n.id)), 30000);
-                    if (tipo !== 'kit_entregado' && d.skipSound !== true) {
+                    if (tipo === 'kit_entregado') {
+                        try { const a = new Audio('./alertaentrega.mp3'); a.volume = 1; a.play().catch(() => {}); } catch (_) {}
+                    } else if (d.skipSound !== true) {
                         try { const a = new Audio('./alertadash.mp3'); a.volume = 1; a.play().catch(() => {}); } catch (_) {}
                     }
                 };
@@ -15223,7 +15243,7 @@ Responde en formato JSON con esta estructura:
                     <main className="main-col flex-1 flex flex-col h-full overflow-hidden overflow-x-hidden bg-white relative z-10 transition-all duration-300 min-w-0">
                         {showNotifications && (
                             <>
-                                <div className="hidden md:flex fixed top-4 right-4 z-[65] relative">
+                                <div className="absolute top-4 right-4 z-[65] flex flex-col items-end" style={{ top: 'max(0.5rem, env(safe-area-inset-top))' }}>
                                     <button onClick={() => setNotificationPanelOpen(!notificationPanelOpen)} className="relative p-2.5 rounded-xl bg-white shadow-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center" aria-label="Notificaciones">
                                         <Icons.Bell size={22}/>
                                         {notificationsToday.length > 0 && (
@@ -15237,9 +15257,9 @@ Responde en formato JSON con esta estructura:
                                                 {notificationsToday.length === 0 ? (
                                                     <p className="text-sm text-slate-400 py-6 text-center">Sin notificaciones hoy</p>
                                                 ) : notificationsToday.map(n => (
-                                                    <div key={n.id} className={`p-3 mb-2 rounded-xl border text-sm ${n.tipo === 'asignacion' ? 'bg-indigo-50 border-indigo-100' : n.tipo === 'asignacion_admin' ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'}`}>
-                                                        <div className={`font-bold ${n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
-                                                            {n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
+                                                    <div key={n.id} className={`p-3 mb-2 rounded-xl border text-sm ${n.tipo === 'kit_entregado' ? 'bg-emerald-50 border-emerald-200' : n.tipo === 'asignacion' ? 'bg-indigo-50 border-indigo-100' : n.tipo === 'asignacion_admin' ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'}`}>
+                                                        <div className={`font-bold ${n.tipo === 'kit_entregado' ? 'text-emerald-800' : n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
+                                                            {n.tipo === 'kit_entregado' ? 'Kit entregado' : n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
                                                         </div>
                                                         <div className="text-slate-600">{n.paciente} — {n.dni}</div>
                                                         {n.origen && <div className="text-xs text-slate-500">{n.origen}</div>}
@@ -15251,9 +15271,9 @@ Responde en formato JSON con esta estructura:
                                 </div>
                                 <div className="fixed bottom-4 right-4 z-[64] flex flex-col gap-2 max-w-[340px] pointer-events-none">
                                     {floatingNotifications.map(n => (
-                                        <div key={n.id} className={`pointer-events-auto p-4 bg-white rounded-2xl shadow-xl border-l-4 animate-in ${n.tipo === 'asignacion' ? 'border-indigo-500' : n.tipo === 'asignacion_admin' ? 'border-amber-500' : 'border-green-500'}`}>
-                                            <div className={`font-bold text-sm ${n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
-                                                {n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
+                                        <div key={n.id} className={`pointer-events-auto p-4 bg-white rounded-2xl shadow-xl border-l-4 animate-in ${n.tipo === 'kit_entregado' ? 'border-emerald-500' : n.tipo === 'asignacion' ? 'border-indigo-500' : n.tipo === 'asignacion_admin' ? 'border-amber-500' : 'border-green-500'}`}>
+                                            <div className={`font-bold text-sm ${n.tipo === 'kit_entregado' ? 'text-emerald-800' : n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
+                                                {n.tipo === 'kit_entregado' ? 'Kit entregado' : n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
                                             </div>
                                             <div className="text-slate-600 text-sm">{n.paciente} — {n.dni}</div>
                                             {n.origen && <div className="text-xs text-slate-500">{n.origen}</div>}
@@ -15277,39 +15297,10 @@ Responde en formato JSON con esta estructura:
                                 </div>
                                 <span className="truncate">IHSS A TU CASA</span>
                             </div>
-                            {showNotifications ? (
-                                <div className="relative shrink-0">
-                                    <button onClick={() => setNotificationPanelOpen(!notificationPanelOpen)} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-xl btn-hover-effect" aria-label="Notificaciones">
-                                        <Icons.Bell size={22}/>
-                                        {notificationsToday.length > 0 && (
-                                            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center px-1">{notificationsToday.length > 99 ? '99+' : notificationsToday.length}</span>
-                                        )}
-                                    </button>
-                                    {notificationPanelOpen && (
-                                        <div className="absolute right-0 top-full mt-1 w-[320px] max-h-[400px] overflow-y-auto bg-white rounded-2xl shadow-xl border border-slate-200 z-[70] animate-in">
-                                            <div className="p-3 border-b border-slate-100 font-bold text-slate-800">Notificaciones del día</div>
-                                            <div className="p-2">
-                                                {notificationsToday.length === 0 ? (
-                                                    <p className="text-sm text-slate-400 py-6 text-center">Sin notificaciones hoy</p>
-                                                ) : notificationsToday.map(n => (
-                                                    <div key={n.id} className={`p-3 mb-2 rounded-xl border text-sm ${n.tipo === 'asignacion' ? 'bg-indigo-50 border-indigo-100' : n.tipo === 'asignacion_admin' ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'}`}>
-                                                        <div className={`font-bold ${n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
-                                                            {n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
-                                                        </div>
-                                                        <div className="text-slate-600">{n.paciente} — {n.dni}</div>
-                                                        {n.origen && <div className="text-xs text-slate-500">{n.origen}</div>}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="w-10 shrink-0" aria-hidden="true"></div>
-                            )}
+                            <div className="w-10 shrink-0" aria-hidden="true"></div>
                         </header>
                         <div className="mobile-content-area flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth relative z-10 min-w-0 mobile-content-pt">
-                            {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} kits={kits} currentUser={currentUserForBlocks} patients={patients} users={users} permissions={permissions} showNotifications={showNotifications} notificationsToday={notificationsToday} notificationPanelOpen={notificationPanelOpen} setNotificationPanelOpen={setNotificationPanelOpen} />}
+                            {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} kits={kits} currentUser={currentUserForBlocks} patients={patients} users={users} permissions={permissions} />}
                             {view === 'reports' && canViewReports && <ReportsBlock kits={kits} patients={patients} userRole={role} userName={userName} setView={setView} currentUser={currentUserForBlocks} users={users} db={db} />}
                             {view === 'calendario' && showCalendario && <CalendarioBlock kits={kits} patients={patients} setView={setView} currentUser={currentUserForBlocks} users={users} role={role} onSaveKit={saveKit} permissions={permissions} />}
                             {view === 'despacho' && showDespacho && <DespachoListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserForBlocks} users={users} role={role} />}
