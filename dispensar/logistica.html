@@ -141,7 +141,7 @@
         const { useState, useEffect, useMemo } = React;
 
         const Icon = ({ path, size = 20 }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="icon-elegant">{path}</svg>;
-        const Icons = {
+        const IconsBase = {
             Truck: (p) => <Icon {...p} path={<><path d="M16 3h5l5 5v11a2 2 0 0 1-2 2h-2"/><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h2"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></>} />,
             Box: (p) => <Icon {...p} path={<><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></>} />,
             Eye: (p) => <Icon {...p} path={<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></>} />,
@@ -164,6 +164,15 @@
             Users: (p) => <Icon {...p} path={<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></>} />,
             Download: (p) => <Icon {...p} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></>} />
         };
+        const Icons = new Proxy(IconsBase, {
+            get(target, prop) {
+                const value = target[prop];
+                if (typeof value === 'function') return value;
+                if (typeof prop === 'string' && prop in target) return value;
+                if (typeof prop === 'string') console.warn(`[Icons] Icono no definido: ${prop}`);
+                return () => null;
+            }
+        });
 
         const RedirectToIndex = () => {
             useEffect(() => { window.location.href = 'index.html'; }, []);
@@ -552,6 +561,34 @@
                     return (k.nombre||(pt?.nombre||'')).toLowerCase().includes(t) || (k.dni||(pt?.dni||'')).toString().toLowerCase().includes(t);
                 });
             }, [kitsBitacoraLogisticaDia, patients, bitacoraModalSearch]);
+            const descargarBitacoraExcel = async (fecha, kitsDia) => {
+                try {
+                    const XLSX = await window.ensureXLSX();
+                    const medsVan = (m)=>m.filter(x=>x.dispensar!==false).map(x=>(x.nombre||'—')+' × '+(x.cantidad||1)).join('; ');
+                    const medsNoVan = (m)=>m.filter(x=>x.dispensar===false).map(x=>(x.nombre||'—')+' × '+(x.cantidad||1)).join('; ');
+                    const rows = (kitsDia || []).map(k => {
+                        const pt = (patients||[]).find(p=>p.id===k.patientId||(p.dni&&k.dni&&String(p.dni).trim()===String(k.dni).trim()));
+                        const meds = k.medicamentos||[];
+                        const dispensados = meds.filter(x=>x.dispensar!==false).length;
+                        const total = meds.length;
+                        return {
+                            DNI: k.dni||pt?.dni||'—',
+                            Nombre: k.nombre||pt?.nombre||'—',
+                            'Cantidad medicamentos': total?`${dispensados}/${total}`:'0/0',
+                            'Medicamentos que van': medsVan(meds)||'—',
+                            'Medicamentos que no van': medsNoVan(meds)||'—',
+                            'Tipo envio': (k.deliveryMode||'').toLowerCase()==='ruta'?'Ruta':'Ventanilla',
+                            'Fecha entrega kit': k.fechaEntregaKit||k.fechaEnvioDespachoLogistica||'—'
+                        };
+                    });
+                    const ws = XLSX.utils.json_to_sheet(rows);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Bitacora');
+                    XLSX.writeFile(wb, `bitacora_logistica_${fecha}_${new Date().toISOString().split('T')[0]}.xlsx`);
+                } catch (e) {
+                    alert('Error al descargar: ' + (e?.message || e));
+                }
+            };
 
             const listadoDespacho = listaEsperaTab === 'ventanilla' ? listaDespachoVentanilla : listaDespachoRuta;
             const listadoRefri = listaEsperaTab === 'ventanilla' ? listaRefriVentanilla : listaRefriRuta;
@@ -993,14 +1030,27 @@
                                         <Icons.Folder size={48} className="mx-auto mb-3 opacity-40"/>
                                         <p className="font-medium">{bitacoraLogistica.length === 0 ? 'No hay registros en bitácora' : 'Sin resultados'}</p>
                                     </div>
-                                ) : bitacoraLogisticaFiltrada.map(({ fecha, count }) => (
-                                    <button key={fecha} onClick={()=>setBitacoraFechaAbierta(fecha)} className="flex items-center gap-3 p-4 rounded-2xl border-2 border-slate-200 hover:border-cyan-400 hover:bg-cyan-50/50 transition-all text-left btn-hover-effect group min-h-[72px]">
-                                        <div className="p-2.5 rounded-xl bg-cyan-100 text-cyan-700 group-hover:bg-cyan-200"><Icons.Folder size={24}/></div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="font-bold text-slate-800 truncate">{formatearFechaBitacora(fecha)}</div>
-                                            <div className="text-xs text-slate-500">{count} kit(s)</div>
-                                        </div>
-                                    </button>
+                                ) : bitacoraLogisticaFiltrada.map(({ fecha, count, kits: kitsDia }) => (
+                                    <div key={fecha} className="rounded-2xl border-2 border-slate-200 hover:border-cyan-400 hover:bg-cyan-50/50 transition-all text-left group overflow-hidden">
+                                        <button onClick={()=>setBitacoraFechaAbierta(fecha)} className="w-full flex items-center gap-3 p-4 btn-hover-effect min-h-[72px]">
+                                            <div className="p-2.5 rounded-xl bg-cyan-100 text-cyan-700 group-hover:bg-cyan-200"><Icons.Folder size={24}/></div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="font-bold text-slate-800 truncate">{formatearFechaBitacora(fecha)}</div>
+                                                <div className="text-xs text-slate-500">{count} kit(s)</div>
+                                            </div>
+                                        </button>
+                                        {role === 'supervisor' && (
+                                            <div className="px-4 pb-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={(e)=>{ e.stopPropagation(); descargarBitacoraExcel(fecha, kitsDia || []); }}
+                                                    className="w-full btn-list-action flex items-center justify-center gap-2 px-4 bg-green-100 text-green-700 hover:bg-green-200 transition-colors btn-hover-effect"
+                                                >
+                                                    <Icons.Download size={16}/> Descargar Excel
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
                         </div>
@@ -1016,26 +1066,6 @@
                                         <input type="text" placeholder="Buscar por nombre o DNI..." value={bitacoraModalSearch} onChange={e=>setBitacoraModalSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-xl border border-slate-200 text-sm outline-none focus:border-cyan-300 focus:ring-1 focus:ring-cyan-200" />
                                     </div>
                                     <span className="text-sm text-slate-500">{kitsBitacoraLogisticaDiaFiltrados.length !== kitsBitacoraLogisticaDia.length ? `${kitsBitacoraLogisticaDiaFiltrados.length} de ${kitsBitacoraLogisticaDia.length}` : `${kitsBitacoraLogisticaDia.length} kit(s)`}</span>
-                                    {role === 'supervisor' && (
-                                        <button onClick={async ()=>{
-                                            try {
-                                                const XLSX = await window.ensureXLSX();
-                                                const medsVan = (m)=>m.filter(x=>x.dispensar!==false).map(x=>(x.nombre||'—')+' × '+(x.cantidad||1)).join('; ');
-                                                const medsNoVan = (m)=>m.filter(x=>x.dispensar===false).map(x=>(x.nombre||'—')+' × '+(x.cantidad||1)).join('; ');
-                                                const rows = kitsBitacoraLogisticaDiaFiltrados.map(k=>{
-                                                    const pt=(patients||[]).find(p=>p.id===k.patientId||(p.dni&&k.dni&&String(p.dni).trim()===String(k.dni).trim()));
-                                                    const meds=k.medicamentos||[];
-                                                    const dispensados=meds.filter(x=>x.dispensar!==false).length;
-                                                    const total=meds.length;
-                                                    return { DNI: k.dni||pt?.dni||'—', Nombre: k.nombre||pt?.nombre||'—', 'Cantidad medicamentos': total?`${dispensados}/${total}`:'0/0', 'Medicamentos que van': medsVan(meds)||'—', 'Medicamentos que no van': medsNoVan(meds)||'—', 'Tipo envío': (k.deliveryMode||'').toLowerCase()==='ruta'?'Ruta':'Ventanilla', 'Fecha entrega kit': k.fechaEntregaKit||k.fechaEnvioDespachoLogistica||'—' };
-                                                });
-                                                const ws=XLSX.utils.json_to_sheet(rows);
-                                                const wb=XLSX.utils.book_new();
-                                                XLSX.utils.book_append_sheet(wb,ws,'Bitácora');
-                                                XLSX.writeFile(wb,`bitacora_logistica_${bitacoraFechaAbierta}_${new Date().toISOString().split('T')[0]}.xlsx`);
-                                            } catch(e){ alert('Error al descargar: '+e.message); }
-                                        }} className="btn-list-action flex items-center gap-2 px-4 bg-green-100 text-green-700 hover:bg-green-200 transition-colors btn-hover-effect"><Icons.Download size={16}/> Descargar Excel</button>
-                                    )}
                                 </div>
                                 <div className="divide-y divide-slate-100 max-h-[50vh] overflow-y-auto rounded-xl border border-slate-100">
                                     {(kitsBitacoraLogisticaDiaFiltrados||[]).filter(Boolean).map((k,i)=>renderRowBitacora(k,i))}
