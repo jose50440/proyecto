@@ -7206,9 +7206,9 @@
             // Estado para todos los pacientes (necesario para filtrado por usuario)
             const [allPatients, setAllPatients] = useState([]);
             
-            // Cargar todos los pacientes cuando se necesita para filtrado
+            // Cargar todos los pacientes cuando se necesita (asignados, renovar, medsNoVan)
             useEffect(() => {
-                if (needsTabs && activePatientTab === 'asignados') {
+                if (needsTabs && (activePatientTab === 'asignados' || activePatientTab === 'renovar' || activePatientTab === 'medsNoVan')) {
                     const loadAllPatients = async () => {
                         try {
                             if (!firebaseInitialized || !db) return;
@@ -11358,24 +11358,25 @@ html +
                             </>
                         ) : (activePatientTab === 'renovar' || activePatientTab === 'medsNoVan') && (isRevisionAsignacion || isAgenteContactCenter) ? (() => {
                             const esRenovar = activePatientTab === 'renovar';
-                            const medsQueRequierenRenovar = (m) => m.hayQueRenovarRecetas === true;
-                            const medsQueNoVanSinRenovar = (m) => m.dispensar === false && !m.hayQueRenovarRecetas;
-                            const filtroMeds = esRenovar ? medsQueRequierenRenovar : medsQueNoVanSinRenovar;
+                            const hayQueRenovar = (m) => m.hayQueRenovarRecetas === true || m.hayQueRenovarRecetas === 'true';
+                            const noVaSinRenovar = (m) => (m.dispensar === false || m.dispensar === 'false') && !hayQueRenovar(m);
+                            const filtroMeds = esRenovar ? hayQueRenovar : noVaSinRenovar;
                             const kitsConMeds = (kits || []).filter(k => {
-                                const meds = k.medicamentos || [];
+                                const meds = Array.isArray(k.medicamentos) ? k.medicamentos : [];
                                 if (!meds.some(filtroMeds)) return false;
-                                if (esRenovar && k.yaRenovoRecetas) return false;
+                                if (esRenovar && (k.yaRenovoRecetas === true || k.yaRenovoRecetas === 'true')) return false;
                                 return true;
                             });
+                            const plist = (allPatients && allPatients.length > 0) ? allPatients : patients;
                             const porFecha = {};
                             kitsConMeds.forEach(k => {
-                                const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                                const pt = (plist || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
                                 const medsDelKit = (k.medicamentos || []).filter(filtroMeds);
                                 if (medsDelKit.length === 0) return;
                                 medsDelKit.forEach(med => {
                                     const f = (med.fechaIndicadaRenovar || k.fechaArmado || new Date().toISOString().split('T')[0]).toString().trim().slice(0, 10);
                                     if (!porFecha[f]) porFecha[f] = {};
-                                    const key = (k.patientId || pt?.id) + '_' + k.id;
+                                    const key = ((k.patientId || pt?.id) || k.id) + '_' + (k.id || '');
                                     if (!porFecha[f][key]) porFecha[f][key] = { kit: k, pt, meds: [] };
                                     porFecha[f][key].meds.push({ med, hayQueRenovar: !!med.hayQueRenovarRecetas, fecha: med.fechaIndicadaRenovar || k.fechaArmado || f });
                                 });
@@ -11405,6 +11406,7 @@ html +
                                                 <div className="col-span-full p-12 text-center text-slate-500">
                                                     <Icons.Folder size={48} className="mx-auto mb-3 opacity-40"/>
                                                     <p className="font-medium">{esRenovar ? 'No hay pacientes pendientes de renovar recetas' : 'No hay medicamentos que no van (sin marcar renovar)'}</p>
+                                                    <p className="text-xs mt-2 text-slate-400">{esRenovar ? 'Los kits con medicamentos marcados "Hay que renovar recetas" aparecerán aquí.' : 'Los kits con medicamentos en "No va" y sin marcar renovar aparecerán aquí.'}</p>
                                                 </div>
                                             ) : diasLista.map(({ fecha, count }) => (
                                                 <button key={fecha} onClick={() => setRenovarFechaAbierta(fecha)} className="bg-white rounded-2xl border-2 border-violet-200 hover:border-violet-400 overflow-hidden text-left transition-all group">
@@ -11423,6 +11425,10 @@ html +
                                             <button onClick={() => { setRenovarFechaAbierta(null); setRenovarPatientSeleccionado(null); }} className="mb-4 flex items-center gap-2 text-slate-500 hover:text-turquoise-600 font-bold text-sm">
                                                 <Icons.ArrowLeft size={18}/> Volver a carpetas
                                             </button>
+                                            {!carpetaActual ? (
+                                                <div className="p-8 text-center text-slate-500">Esta fecha ya no tiene datos. Pulse &quot;Volver a carpetas&quot;.</div>
+                                            ) : (
+                                            <>
                                             <div className="font-bold text-slate-800 mb-3">{formatearFechaR(renovarFechaAbierta)} — Pacientes</div>
                                             <div className="space-y-2 max-h-[50vh] overflow-y-auto">
                                                 {(carpetaActual?.pacientes || []).map(({ kit, pt, meds }) => (
@@ -11440,6 +11446,8 @@ html +
                                                     </div>
                                                 ))}
                                             </div>
+                                            </>
+                                            )}
                                         </div>
                                     ) : (
                                         <div>
