@@ -317,10 +317,7 @@
             <div class="relative card-elevated w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" style="box-shadow: 0 25px 50px -12px rgba(0,0,0,0.2);">
                 <div class="bg-gradient-to-r from-brand-600 to-brand-700 px-5 py-4 flex justify-between items-center">
                     <h3 class="text-lg font-semibold text-white" id="modal-title">Paciente</h3>
-                    <div class="flex items-center gap-2">
-                        <button type="button" id="modal-back-btn" class="hidden text-white/90 hover:text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors" onclick="modalShowSheets()">← Volver</button>
-                        <button onclick="closeModal()" class="text-white/90 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
-                    </div>
+                    <button onclick="closeModal()" class="text-white/90 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors" aria-label="Cerrar"><i data-lucide="x" class="w-5 h-5"></i></button>
                 </div>
                 <div class="px-5 py-5 max-h-[65vh] overflow-y-auto custom-scrollbar bg-slate-50/50" id="modal-content"></div>
                 <div class="px-5 py-4 border-t border-slate-200 bg-white flex justify-end">
@@ -806,31 +803,16 @@
             document.getElementById('stat-max-count').innerText = maxVal + " filas";
         }
 
-        // --- MODAL PACIENTE (tarjetas por hoja → clic muestra fila con encabezados) ---
+        // --- MODAL PACIENTE (muestra directa de la fila A–H, un solo resultado) ---
         var _modalPaciente = null;
 
         function openModalPaciente(item) {
             _modalPaciente = item;
             document.getElementById('modal-title').textContent = item.term;
-            document.getElementById('modal-back-btn').classList.add('hidden');
-            modalShowSheets();
+            if (item.occurrences && item.occurrences[0]) {
+                modalShowRow(item.occurrences[0]);
+            }
             document.getElementById('patient-modal').classList.remove('hidden');
-        }
-
-        function modalShowSheets() {
-            if (!_modalPaciente) return;
-            var content = document.getElementById('modal-content');
-            content.innerHTML = '<p class="text-sm text-slate-600 mb-3">Clic en la hoja para ver la fila (columnas A–H):</p><div id="modal-sheets-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>';
-            var grid = document.getElementById('modal-sheets-grid');
-            _modalPaciente.occurrences.forEach(function(occ) {
-                var card = document.createElement('div');
-                card.className = 'bg-brand-50 border border-brand-200 p-4 rounded-xl cursor-pointer hover:bg-brand-100 hover:border-brand-300 transition-all text-center';
-                card.innerHTML = '<span class="font-semibold text-brand-700">' + occ.sheetName + '</span>';
-                card.onclick = function() { modalShowRow(occ); };
-                grid.appendChild(card);
-            });
-            document.getElementById('modal-back-btn').classList.add('hidden');
-            lucide.createIcons();
         }
 
         function modalShowRow(occ) {
@@ -844,7 +826,6 @@
                 var val = String(v).trim();
                 content.innerHTML += '<div class="bg-white p-3 rounded-xl border border-slate-100 mb-2 shadow-sm"><p class="text-[10px] font-bold text-brand-600 uppercase tracking-wider mb-1">' + h + '</p><p class="text-sm text-slate-800 break-words">' + (val || '—') + '</p></div>';
             });
-            document.getElementById('modal-back-btn').classList.remove('hidden');
         }
 
         function closeModal() {
