@@ -19,11 +19,12 @@
     <script>
         tailwind.config = {
             theme: {
-                fontFamily: { sans: ['Inter', 'sans-serif'] },
+                fontFamily: { sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'] },
                 extend: {
                     colors: {
-                        brand: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 700: '#0f766e' },
-                        accent: { 50: '#ecfdf5', 500: '#10b981', 600: '#059669' }
+                        brand: { 50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 500: '#0d9488', 600: '#0f766e', 700: '#115e59' },
+                        accent: { 50: '#ecfdf5', 100: '#d1fae5', 500: '#059669', 600: '#047857' },
+                        surface: { 50: '#f8fafc', 100: '#f1f5f9' }
                     }
                 }
             }
@@ -31,49 +32,70 @@
     </script>
 
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
         body {
-            background-color: #f3f4f6;
-            background-image: radial-gradient(#14b8a6 0.5px, transparent 0.5px), radial-gradient(#14b8a6 0.5px, #f3f4f6 0.5px);
-            background-size: 20px 20px;
-            background-position: 0 0, 10px 10px;
+            background: linear-gradient(160deg, #f8fafc 0%, #f0fdfa 40%, #ecfdf5 100%);
             background-attachment: fixed;
+            min-height: 100vh;
         }
-        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.5); }
-        .tab-btn.active { color: #0d9488; border-bottom: 2px solid #0d9488; background-color: #f0fdfa; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .toggle-checkbox:checked { right: 0; border-color: #10b981; }
-        .toggle-checkbox:checked + .toggle-label { background-color: #10b981; }
-        .main-tab.active { color: #0d9488; border-bottom: 2px solid #0d9488; background-color: #f0fdfa; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .card-elevated {
+            background: #fff;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06), 0 2px 4px -2px rgba(0,0,0,0.04);
+            border: 1px solid rgba(241,245,249,0.8);
+        }
+        .card-elevated:hover { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.04); }
+        .tab-btn.active { color: #0f766e; border-bottom: 2px solid #0d9488; background: linear-gradient(to bottom, #f0fdfa, transparent); }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .toggle-checkbox:checked { right: 0; border-color: #059669; }
+        .toggle-checkbox:checked + .toggle-label { background: linear-gradient(135deg, #059669, #0d9488); }
+        .main-tab {
+            border-radius: 0.75rem 0.75rem 0 0;
+            transition: all 0.2s ease;
+        }
+        .main-tab.active { color: #0f766e; font-weight: 600; border-bottom: 2px solid #0d9488; background: rgba(255,255,255,0.9); }
+        .btn-primary {
+            background: linear-gradient(135deg, #059669 0%, #0d9488 100%);
+            box-shadow: 0 2px 8px rgba(13, 148, 136, 0.35);
+        }
+        .btn-primary:hover { filter: brightness(1.05); box-shadow: 0 4px 12px rgba(13, 148, 136, 0.4); }
     </style>
 </head>
-<body class="text-gray-800 font-sans min-h-screen flex flex-col overflow-x-hidden">
+<body class="text-slate-800 font-sans min-h-screen flex flex-col overflow-x-hidden antialiased">
 
     <!-- Pantalla de Login -->
-    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-brand-500/10 via-gray-50 to-accent-500/10">
-        <div class="glass-panel rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4">
-            <div class="text-center mb-8">
-                <div class="inline-flex bg-gradient-to-br from-brand-500 to-accent-500 p-4 rounded-2xl shadow-lg text-white mb-4">
-                    <i data-lucide="lock" class="w-10 h-10"></i>
+    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm">
+        <div class="card-elevated w-full max-w-md mx-4 overflow-hidden" style="box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15);">
+            <div class="bg-gradient-to-br from-brand-600 to-brand-700 px-8 pt-10 pb-8 text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/20 text-white shadow-lg mb-4">
+                    <i data-lucide="shield-check" class="w-8 h-8"></i>
                 </div>
-                <h1 class="text-2xl font-bold text-gray-800">Portal Clínico</h1>
-                <p class="text-sm text-gray-500 mt-1">Inicie sesión para continuar</p>
+                <h1 class="text-2xl font-bold text-white tracking-tight">Portal Clínico</h1>
+                <p class="text-sm text-white/80 mt-1">Inicie sesión para continuar</p>
             </div>
-            <form id="login-form" onsubmit="return doLogin(event)" class="space-y-5">
+            <form id="login-form" onsubmit="return doLogin(event)" class="p-8 space-y-5">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-600 mb-2">Usuario</label>
-                    <input type="text" id="login-user" autocomplete="username" placeholder="Usuario" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500" required />
+                    <label class="block text-sm font-semibold text-slate-600 mb-2">Usuario</label>
+                    <input type="text" id="login-user" autocomplete="username" placeholder="Usuario" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-shadow" required />
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-600 mb-2">Contraseña</label>
-                    <input type="password" id="login-pass" autocomplete="current-password" placeholder="Contraseña" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500" required />
+                    <label class="block text-sm font-semibold text-slate-600 mb-2">Contraseña</label>
+                    <input type="password" id="login-pass" autocomplete="current-password" placeholder="Contraseña" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-shadow" required />
                 </div>
                 <p id="login-error" class="text-sm text-red-600 hidden"></p>
-                <button type="submit" class="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-accent-600 to-brand-600 hover:from-accent-500 hover:to-brand-500 shadow-lg transition-all">Ingresar</button>
+                <button type="submit" class="btn-primary w-full py-3.5 rounded-xl font-semibold text-white transition-all">Ingresar</button>
             </form>
         </div>
     </div>
@@ -82,97 +104,97 @@
     <div id="app-container" class="hidden flex flex-col min-h-screen">
 
     <!-- Navbar -->
-    <nav class="sticky top-0 z-40 w-full glass-panel border-b border-gray-200/50 shadow-sm">
+    <nav class="sticky top-0 z-40 w-full glass-panel border-b border-slate-200/60">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
+            <div class="flex justify-between items-center h-14">
                 <div class="flex items-center gap-3">
-                    <div class="bg-gradient-to-br from-brand-500 to-accent-500 p-2 rounded-lg shadow-md text-white">
-                        <i data-lucide="activity" class="w-6 h-6"></i>
+                    <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-sm">
+                        <i data-lucide="heart-pulse" class="w-5 h-5"></i>
                     </div>
                     <div>
-                        <h1 class="text-xl font-bold tracking-tight text-gray-900 leading-tight">Portal Clínico</h1>
-                        <p class="text-[10px] font-semibold text-brand-600 uppercase tracking-wider">Gestión de Pacientes</p>
+                        <h1 class="text-lg font-bold tracking-tight text-slate-900">Portal Clínico</h1>
+                        <p class="text-[10px] font-medium text-slate-500 uppercase tracking-widest">Gestión de Pacientes</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-3">
-                    <div id="connection-badge" class="flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-gray-100 border border-gray-200">
-                        <div class="relative flex h-3 w-3">
-                            <span id="status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                            <span id="status-dot" class="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span>
+                <div class="flex items-center gap-3 flex-wrap justify-end">
+                    <div id="connection-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200">
+                        <div class="relative flex h-2.5 w-2.5">
+                            <span id="status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                            <span id="status-dot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
                         </div>
-                        <span id="connection-text" class="text-xs font-medium text-gray-600">Conectando...</span>
+                        <span id="connection-text" class="text-xs font-medium text-slate-600">Conectando...</span>
                     </div>
-                    <div id="file-origin-alert" class="hidden max-w-md rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                        <strong>Abriste la app desde un archivo (file://).</strong> Para cargar datos, en la carpeta del proyecto ejecuta <code class="bg-amber-100 px-1 rounded">npm start</code> o <code class="bg-amber-100 px-1 rounded">npx serve .</code> y abre <code class="bg-amber-100 px-1 rounded">http://localhost:3000</code>
+                    <div id="file-origin-alert" class="hidden max-w-sm rounded-xl border border-amber-200 bg-amber-50/90 px-3 py-2 text-xs text-amber-800">
+                        <strong>Abriste desde archivo (file://).</strong> Ejecuta <code class="bg-amber-100 px-1 rounded">npm start</code> y abre <code class="bg-amber-100 px-1 rounded">http://localhost:3000</code>
                     </div>
-                    <button type="button" onclick="logout()" class="text-xs text-gray-500 hover:text-red-600 font-medium flex items-center gap-1">Cerrar sesión</button>
+                    <button type="button" onclick="logout()" class="text-xs text-slate-500 hover:text-red-600 font-medium transition-colors">Cerrar sesión</button>
                 </div>
             </div>
         </div>
     </nav>
 
     <!-- Tabs principales -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-2 w-full">
-        <div class="flex gap-1 border-b border-gray-200">
-            <button type="button" id="nav-tab-busqueda" onclick="switchMainTab('busqueda')" class="main-tab active px-4 py-2 text-sm font-medium rounded-t-lg transition-colors">Búsqueda / QR</button>
-            <button type="button" id="nav-tab-medicamentos" onclick="switchMainTab('medicamentos')" class="main-tab px-4 py-2 text-sm font-medium text-gray-500 rounded-t-lg hover:text-gray-700 transition-colors">Lista de Medicamentos</button>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-0 w-full">
+        <div class="flex gap-0.5 border-b border-slate-200 bg-slate-50/50 rounded-t-xl px-1 pt-1">
+            <button type="button" id="nav-tab-busqueda" onclick="switchMainTab('busqueda')" class="main-tab active px-5 py-2.5 text-sm font-medium text-slate-600">QR</button>
+            <button type="button" id="nav-tab-medicamentos" onclick="switchMainTab('medicamentos')" class="main-tab px-5 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700">Lista de Medicamentos</button>
         </div>
     </div>
 
     <!-- Contenido -->
-    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full">
-        <div id="content-busqueda" class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+        <div id="content-busqueda" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
             <!-- Panel Izquierdo: Config -->
-            <div class="lg:col-span-4 space-y-6">
-                <div class="glass-panel rounded-2xl shadow-lg p-6 relative overflow-hidden group">
-                    <div class="absolute top-0 right-0 p-4 opacity-10"><i data-lucide="settings" class="w-24 h-24 text-brand-500 transform rotate-12"></i></div>
-                    <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                        <span class="bg-brand-100 p-1.5 rounded-md text-brand-600"><i data-lucide="database" class="w-5 h-5"></i></span>
+            <div class="lg:col-span-4 space-y-5">
+                <div class="card-elevated p-6 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-brand-100/80 to-transparent rounded-bl-full"></div>
+                    <h2 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="flex items-center justify-center w-9 h-9 rounded-lg bg-brand-100 text-brand-600"><i data-lucide="sliders-horizontal" class="w-5 h-5"></i></span>
                         Configuración
                     </h2>
                     
                     <div class="space-y-5 relative z-10">
-                        <!-- Selector Columna -->
                         <div>
-                            <label class="block text-sm font-semibold text-gray-600 mb-2">1. Columna a Buscar</label>
+                            <label class="block text-sm font-semibold text-slate-600 mb-2">1. Columna a Buscar (A–H)</label>
+                            <p class="text-[11px] text-slate-500 mb-1.5">Fila 1 de la hoja QR = encabezados</p>
                             <div class="relative">
-                                <select id="dniColumnSelect" class="w-full pl-4 pr-10 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm appearance-none disabled:bg-gray-50 disabled:text-gray-400" disabled>
+                                <select id="dniColumnSelect" class="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-sm appearance-none disabled:bg-slate-100 disabled:text-slate-400 transition-colors" disabled>
                                     <option>Cargando...</option>
                                 </select>
-                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400"><i data-lucide="chevron-down" class="w-4 h-4"></i></div>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400"><i data-lucide="chevron-down" class="w-4 h-4"></i></div>
                             </div>
                         </div>
 
-                        <!-- Toggle Modo -->
-                        <div class="bg-gray-50 rounded-xl p-3 border border-gray-200">
-                            <label class="block text-sm font-semibold text-gray-600 mb-2">2. Modo de Filtro</label>
+                        <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-100">
+                            <label class="block text-sm font-semibold text-slate-600 mb-2">2. Modo de Filtro</label>
                             <div class="flex items-center justify-between">
-                                <span class="text-sm text-gray-700 font-medium" id="toggle-text">Eliminar Duplicados</span>
-                                <div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
-                                    <input type="checkbox" id="uniqueMode" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300 right-6 checked:right-0 transition-all duration-300" checked onclick="updateToggleLabel()"/>
-                                    <label for="uniqueMode" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer checked:bg-brand-500 transition-colors duration-300"></label>
+                                <span class="text-sm text-slate-700 font-medium" id="toggle-text">Eliminar Duplicados</span>
+                                <div class="relative inline-block w-12 align-middle select-none">
+                                    <input type="checkbox" id="uniqueMode" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-300 right-6 checked:right-0 transition-all duration-300" checked onclick="updateToggleLabel()"/>
+                                    <label for="uniqueMode" class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-300 cursor-pointer transition-colors duration-300"></label>
                                 </div>
                             </div>
-                            <p class="text-[11px] text-gray-500 mt-2" id="toggle-desc">Muestra 1 resultado por valor. (Ideal DNI).</p>
-                            <div id="smart-search-badge" class="hidden mt-2 flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">
-                                <i data-lucide="sparkles" class="w-3 h-3"></i> <span class="font-bold">Búsqueda Inteligente</span>
+                            <p class="text-[11px] text-slate-500 mt-2" id="toggle-desc">1 resultado por valor. (Ideal DNI).</p>
+                            <div id="smart-search-badge" class="hidden mt-2 flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">
+                                <i data-lucide="sparkles" class="w-3 h-3"></i> <span class="font-semibold">Búsqueda Inteligente</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Guía -->
-                <div class="glass-panel rounded-2xl shadow-sm border border-brand-100 p-6">
-                    <h3 class="text-sm font-bold text-gray-800 mb-3 uppercase tracking-wider text-brand-700">Tips de Búsqueda</h3>
-                    <ul class="space-y-3">
-                        <li class="flex items-start gap-3 text-sm text-gray-600">
-                            <i data-lucide="check-circle-2" class="w-5 h-5 text-brand-500 flex-shrink-0"></i>
-                            <span><b>DNI Exacto:</b> Activa "Eliminar Duplicados".</span>
+                <div class="card-elevated p-5 border border-slate-100">
+                    <h3 class="text-xs font-bold text-brand-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <i data-lucide="lightbulb" class="w-4 h-4"></i> Tips
+                    </h3>
+                    <ul class="space-y-2.5 text-sm text-slate-600">
+                        <li class="flex items-start gap-2.5">
+                            <i data-lucide="check-circle-2" class="w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5"></i>
+                            <span><b>DNI exacto:</b> deja "Eliminar Duplicados" activado.</span>
                         </li>
-                        <li class="flex items-start gap-3 text-sm text-gray-600">
-                            <i data-lucide="search-check" class="w-5 h-5 text-blue-500 flex-shrink-0"></i>
-                            <span><b>Municipios:</b> Desactiva la opción. Escribe "sps", "ceiba" o "progreso".</span>
+                        <li class="flex items-start gap-2.5">
+                            <i data-lucide="search" class="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5"></i>
+                            <span><b>Texto parcial:</b> desactívalo y escribe "sps", "ceiba", etc.</span>
                         </li>
                     </ul>
                 </div>
@@ -181,119 +203,106 @@
             <!-- Panel Derecho: Input y Resultados -->
             <div class="lg:col-span-8 space-y-6">
                 
-                <!-- Área Input -->
-                <div class="glass-panel rounded-2xl shadow-xl p-1 flex flex-col h-[350px]">
-                    <div class="bg-white rounded-xl p-6 h-full flex flex-col">
-                        <div class="flex justify-between items-center mb-4">
-                            <label class="text-lg font-bold text-gray-800 flex items-center gap-2">
-                                <i data-lucide="file-input" class="w-5 h-5 text-gray-400"></i> Ingreso de Datos
-                            </label>
-                            <div class="flex items-center gap-2">
-                                <button onclick="clearInput()" class="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1 px-2 py-1 rounded hover:bg-red-50 transition-colors">
-                                    <i data-lucide="trash-2" class="w-3 h-3"></i> Limpiar
-                                </button>
-                                <span class="bg-gray-100 text-gray-500 text-xs px-2.5 py-1 rounded-md font-medium">Soporta 5000+</span>
-                            </div>
+                <div class="card-elevated overflow-hidden flex flex-col h-[360px]">
+                    <div class="p-5 border-b border-slate-100 flex justify-between items-center">
+                        <label class="text-base font-bold text-slate-800 flex items-center gap-2">
+                            <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-slate-600"><i data-lucide="file-input" class="w-4 h-4"></i></span>
+                            Ingreso de Datos
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <button onclick="clearInput()" class="text-xs text-slate-500 hover:text-red-600 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Limpiar
+                            </button>
+                            <span class="bg-slate-100 text-slate-500 text-xs px-2.5 py-1 rounded-lg font-medium">Soporta 5000+</span>
                         </div>
-                        
-                        <div class="relative flex-grow group">
-                            <textarea id="inputDNI" class="w-full h-full p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl focus:bg-white focus:border-brand-500 focus:ring-0 resize-none font-mono text-sm text-gray-700 placeholder-gray-400 transition-all custom-scrollbar" placeholder="Ej: 0801199912345 (Modo Duplicados ON)&#10;Ej: sps, ceiba (Modo Duplicados OFF)"></textarea>
-                            <div class="absolute bottom-4 right-4 z-10">
-                                <button id="processBtn" onclick="processData()" disabled class="flex items-center gap-2 bg-gradient-to-r from-accent-600 to-brand-600 hover:from-accent-500 hover:to-brand-500 text-white px-6 py-3 rounded-full shadow-lg font-semibold transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <span id="btn-icon"><i data-lucide="search" class="w-5 h-5"></i></span>
-                                    <span id="btn-text">Procesar Datos</span>
-                                </button>
-                            </div>
+                    </div>
+                    <div class="relative flex-grow p-5 pt-0">
+                        <textarea id="inputDNI" class="w-full h-full p-4 bg-slate-50/50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 resize-none font-mono text-sm text-slate-700 placeholder-slate-400 transition-all custom-scrollbar" placeholder="Ej: 0801199912345 (Modo Duplicados ON)&#10;Ej: sps, ceiba (Modo Duplicados OFF)"></textarea>
+                        <div class="absolute bottom-5 right-5 z-10">
+                            <button id="processBtn" onclick="processData()" disabled class="btn-primary flex items-center gap-2 text-white px-6 py-3 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none">
+                                <span id="btn-icon"><i data-lucide="search" class="w-5 h-5"></i></span>
+                                <span id="btn-text">Procesar Datos</span>
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- SECCIÓN DE RESULTADOS (Oculta al inicio) -->
-                <div id="results-area" class="hidden bg-white rounded-2xl shadow-xl overflow-hidden mt-6">
-                    
-                    <!-- Header Resultados y Botón Excel -->
-                    <div class="flex justify-between items-center border-b border-gray-200 bg-gray-50 px-6 py-4">
-                        <div class="flex gap-4">
-                            <button onclick="switchTab('resumen')" id="tab-resumen" class="tab-btn active text-sm font-medium text-gray-600 hover:text-gray-900 pb-1 border-b-2 border-transparent transition-colors">Resultados</button>
-                            <button onclick="switchTab('estadisticas')" id="tab-estadisticas" class="tab-btn text-sm font-medium text-gray-500 hover:text-gray-900 pb-1 border-b-2 border-transparent transition-colors">Estadísticas</button>
+                <!-- SECCIÓN DE RESULTADOS -->
+                <div id="results-area" class="hidden card-elevated overflow-hidden mt-6">
+                    <div class="flex justify-between items-center border-b border-slate-200 bg-slate-50/70 px-5 py-3">
+                        <div class="flex gap-1">
+                            <button onclick="switchTab('resumen')" id="tab-resumen" class="tab-btn active text-sm font-medium text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg transition-colors">Resultados</button>
+                            <button onclick="switchTab('estadisticas')" id="tab-estadisticas" class="tab-btn text-sm font-medium text-slate-500 hover:text-slate-900 px-4 py-2 rounded-lg transition-colors">Estadísticas</button>
                         </div>
-                        
-                        <!-- BOTÓN MANUAL EXCEL -->
-                        <button id="btnDownloadExcel" onclick="downloadExcel()" class="hidden flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all transform hover:scale-105">
+                        <button id="btnDownloadExcel" onclick="downloadExcel()" class="hidden flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all">
                             <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Descargar Excel
                         </button>
                     </div>
 
-                    <!-- Pestaña Resumen -->
                     <div id="content-resumen" class="p-6">
-                        <!-- Stats Rápidas -->
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-                            <div class="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                                <p class="text-xs text-blue-600 font-bold uppercase">Buscados</p>
-                                <h4 class="text-2xl font-bold text-gray-800" id="stat-total">0</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div class="rounded-xl p-5 bg-slate-50 border border-slate-100">
+                                <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Buscados</p>
+                                <h4 class="text-2xl font-bold text-slate-800" id="stat-total">0</h4>
                             </div>
-                            <div class="bg-green-50 rounded-xl p-4 border border-green-100">
-                                <p class="text-xs text-green-600 font-bold uppercase">Encontrados</p>
-                                <h4 class="text-2xl font-bold text-gray-800" id="stat-found">0</h4>
+                            <div class="rounded-xl p-5 bg-emerald-50/80 border border-emerald-100">
+                                <p class="text-xs text-emerald-600 font-semibold uppercase tracking-wider mb-1">Encontrados</p>
+                                <h4 class="text-2xl font-bold text-slate-800" id="stat-found">0</h4>
                             </div>
-                            <div class="bg-red-50 rounded-xl p-4 border border-red-100">
-                                <p class="text-xs text-red-600 font-bold uppercase">No Encontrados</p>
-                                <h4 class="text-2xl font-bold text-gray-800" id="stat-missing">0</h4>
+                            <div class="rounded-xl p-5 bg-red-50/80 border border-red-100">
+                                <p class="text-xs text-red-600 font-semibold uppercase tracking-wider mb-1">No Encontrados</p>
+                                <h4 class="text-2xl font-bold text-slate-800" id="stat-missing">0</h4>
                             </div>
                         </div>
 
-                        <!-- Lista Encontrados -->
-                        <div id="found-section" class="mb-8 hidden">
-                            <h4 class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i> Resultados Visuales</h4>
-                            <div id="found-cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto custom-scrollbar p-1"></div>
+                        <div id="found-section" class="mb-6 hidden">
+                            <h4 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i data-lucide="check-circle" class="w-4 h-4 text-emerald-500"></i> Resultados (columnas A–H)</h4>
+                            <div id="found-cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto custom-scrollbar"></div>
                         </div>
 
-                        <!-- Lista No Encontrados -->
-                        <div id="missing-section" class="hidden bg-red-50 rounded-xl border border-red-100 overflow-hidden">
-                            <div class="px-4 py-3 bg-red-100/50 flex justify-between items-center">
+                        <div id="missing-section" class="hidden rounded-xl border border-red-100 overflow-hidden bg-red-50/50">
+                            <div class="px-4 py-3 flex justify-between items-center border-b border-red-100">
                                 <h4 class="text-xs font-bold text-red-700 flex items-center gap-2"><i data-lucide="alert-circle" class="w-4 h-4"></i> Sin Coincidencia</h4>
-                                <button onclick="copyAllMissing()" class="text-xs bg-white text-red-600 px-3 py-1 rounded border border-red-200 hover:bg-red-50 font-bold">Copiar Lista</button>
+                                <button onclick="copyAllMissing()" class="text-xs bg-white text-red-600 px-3 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 font-semibold transition-colors">Copiar Lista</button>
                             </div>
-                            <div id="missing-cards-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 p-4 max-h-[200px] overflow-y-auto custom-scrollbar"></div>
+                            <div id="missing-cards-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 p-4 max-h-[180px] overflow-y-auto custom-scrollbar"></div>
                         </div>
                     </div>
 
-                    <!-- Pestaña Estadísticas -->
-                    <div id="content-estadisticas" class="hidden p-6 bg-gray-50/50">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="bg-white p-6 rounded-xl shadow-sm">
-                                <h3 class="text-gray-500 text-xs font-bold uppercase mb-2">Promedio de Filas</h3>
-                                <div class="flex items-end gap-2">
-                                    <span id="stat-avg" class="text-4xl font-bold text-brand-600">0.0</span>
-                                    <span class="text-gray-400 text-sm mb-1">por paciente</span>
+                    <div id="content-estadisticas" class="hidden p-6 bg-slate-50/30">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div class="card-elevated p-6">
+                                <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Promedio de filas</h3>
+                                <div class="flex items-baseline gap-2">
+                                    <span id="stat-avg" class="text-3xl font-bold text-brand-600">0.0</span>
+                                    <span class="text-slate-400 text-sm">por paciente</span>
                                 </div>
                             </div>
-                            <div class="bg-white p-6 rounded-xl shadow-sm">
-                                <h3 class="text-gray-500 text-xs font-bold uppercase mb-2">Mayor Frecuencia</h3>
-                                <h4 id="stat-max-dni" class="text-xl font-bold text-gray-800">---</h4>
-                                <span id="stat-max-count" class="text-sm text-green-600 font-bold">0 filas</span>
+                            <div class="card-elevated p-6">
+                                <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Mayor frecuencia</h3>
+                                <h4 id="stat-max-dni" class="text-lg font-bold text-slate-800">---</h4>
+                                <span id="stat-max-count" class="text-sm text-emerald-600 font-semibold">0 filas</span>
                             </div>
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>
-        <!-- Panel Medicamentos (misma página, otro tab) -->
+
+        <!-- Panel Medicamentos -->
         <div id="content-medicamentos" class="hidden">
-            <div class="glass-panel rounded-2xl shadow-xl p-6">
-                <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <span class="bg-brand-100 p-1.5 rounded-md text-brand-600"><i data-lucide="pill" class="w-5 h-5"></i></span>
-                    Buscar medicamentos
+            <div class="card-elevated p-6">
+                <h2 class="text-base font-bold text-slate-800 mb-2 flex items-center gap-2">
+                    <span class="flex items-center justify-center w-9 h-9 rounded-lg bg-brand-100 text-brand-600"><i data-lucide="pill" class="w-5 h-5"></i></span>
+                    Lista de Medicamentos
                 </h2>
-                <p class="text-sm text-gray-600 mb-4">Filtra por nombre del medicamento del listado cargado desde la hoja de datos.</p>
-                <div class="relative mb-6">
-                    <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i>
-                    <input type="text" id="medicamento-filter" placeholder="Escriba para buscar (ej: amlodipina, aspirina)..." class="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500" oninput="filterMedicamentos()" />
+                <p class="text-sm text-slate-500 mb-5">Columnas A–C de la hoja LISTA DE MEDICAMENTOS. Filtra por nombre.</p>
+                <div class="relative mb-5">
+                    <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
+                    <input type="text" id="medicamento-filter" placeholder="Buscar medicamento (ej: amlodipina, aspirina)..." class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 focus:bg-white transition-colors" oninput="filterMedicamentos()" />
                 </div>
-                <div id="medicamentos-list" class="max-h-[60vh] overflow-y-auto custom-scrollbar grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                </div>
-                <p id="medicamentos-count" class="text-sm text-gray-500 mt-4"></p>
+                <div id="medicamentos-list" class="max-h-[60vh] overflow-y-auto custom-scrollbar grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2"></div>
+                <p id="medicamentos-count" class="text-sm text-slate-500 mt-4 font-medium"></p>
             </div>
         </div>
     </main>
@@ -303,18 +312,19 @@
 
     <!-- Modal -->
     <div id="patient-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity" onclick="closeModal()"></div>
-            <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
-            <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-                <div class="bg-brand-600 px-4 py-4 flex justify-between items-center">
-                    <h3 class="text-lg font-medium text-white" id="modal-title">Paciente</h3>
-                    <button type="button" id="modal-back-btn" class="hidden text-white hover:bg-brand-700 px-3 py-1 rounded text-sm font-medium" onclick="modalShowSheets()">← Volver</button>
-                    <button onclick="closeModal()" class="text-white hover:bg-brand-700 p-1 rounded"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
+            <div class="relative card-elevated w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" style="box-shadow: 0 25px 50px -12px rgba(0,0,0,0.2);">
+                <div class="bg-gradient-to-r from-brand-600 to-brand-700 px-5 py-4 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-white" id="modal-title">Paciente</h3>
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="modal-back-btn" class="hidden text-white/90 hover:text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors" onclick="modalShowSheets()">← Volver</button>
+                        <button onclick="closeModal()" class="text-white/90 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+                    </div>
                 </div>
-                <div class="px-4 py-5 max-h-[65vh] overflow-y-auto custom-scrollbar" id="modal-content"></div>
-                <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse">
-                    <button type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-brand-600 text-base font-medium text-white hover:bg-brand-700 sm:ml-3 sm:w-auto sm:text-sm" onclick="closeModal()">Cerrar</button>
+                <div class="px-5 py-5 max-h-[65vh] overflow-y-auto custom-scrollbar bg-slate-50/50" id="modal-content"></div>
+                <div class="px-5 py-4 border-t border-slate-200 bg-white flex justify-end">
+                    <button type="button" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-semibold text-white" onclick="closeModal()">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -330,14 +340,10 @@
             window._b = function(s) { try { return (typeof atob !== 'undefined' ? atob(s) : ''); } catch(e) { return ''; } };
         })();
         var _1 = [75,78,71,67,68], _2 = [66,88,68,24,26,24,28], _3 = 'aHR0cHM6Ly9kb2NzLmdvb2dsZS5jb20vc3ByZWFkc2hlZXRzL2QvZS8yUEFDWC0xdlJhMHZ5UEVvbl9RbzA1LS0wMzR1bGtzb2k5UENfZV9FdzF6TXFKQTR0NV9kMzMzUW5YSHlIcDh5elFCY09QR0J6N3NIT1lxMmotbjVlQy9wdWI=';
-        // Hojas: QR + meses. En tu Google Sheet, abre cada pestaña y copia el número gid= de la URL.
+        // QR = búsqueda de pacientes (columnas A-H). LISTA DE MEDICAMENTOS = pestaña medicamentos (columnas A-C). Pon el gid de cada hoja.
         var _sheets = [
             { name: 'QR', gid: '375135436' },
-            { name: 'Data Sep', gid: '375135436' },
-            { name: 'Data Oct', gid: '375135436' },
-            { name: 'Data Dic', gid: '375135436' },
-            { name: 'Data Enero', gid: '375135436' },
-            { name: 'Data Febrero', gid: '375135436' }
+            { name: 'LISTA DE MEDICAMENTOS', gid: '0' }
         ];
         let sheetsData = {};
         let dbData = [];
@@ -429,24 +435,13 @@
 
         function buildMedicamentosList() {
             var set = new Set();
-            var splitRegex = /[,;]|\s+y\s+|\/\s*|\s+\/\s+/;
-            var stopWords = /^(solo|en|ventanilla|fisica|no|hay|disponible|dispensar|los|por|el|la|de|para|que|se|le|los|las|un|una|paso|pasar|consultar|receta|recetas)$/i;
-            Object.keys(sheetsData || {}).forEach(function(sheetName) {
-                var sh = sheetsData[sheetName];
-                if (!sh || !sh.headers || !sh.data) return;
-                var obsKey = sh.headers.find(function(h) { return h && /observacion/i.test(String(h).replace(/^\uFEFF/, '')); });
-                if (!obsKey) return;
-                sh.data.forEach(function(row) {
-                    var text = String(row[obsKey] || '');
-                    text.split(splitRegex).forEach(function(part) {
-                        var name = part
-                            .replace(/\s*(?:solo en|ventanilla|fisica|no hay|no disponible|solo esta|solo se).*$/i, '')
-                            .replace(/\s*\(\s*refrigerado\s*\)\s*$/i, '')
-                            .trim();
-                        if (name.length >= 3 && /[a-záéíóúñ]/i.test(name) && !stopWords.test(name) && !/^\d+$/.test(name)) {
-                            set.add(name);
-                        }
-                    });
+            var sh = sheetsData['LISTA DE MEDICAMENTOS'];
+            if (!sh || !sh.headers || !sh.data) { medicamentosList = []; renderMedicamentosList(medicamentosList); return; }
+            var cols = sh.headers.slice(0, 3);
+            sh.data.forEach(function(row) {
+                cols.forEach(function(h) {
+                    var val = String(row[h] != null ? row[h] : '').trim();
+                    if (val.length > 0) set.add(val);
                 });
             });
             medicamentosList = Array.from(set).sort(function(a, b) { return a.localeCompare(b, 'es'); });
@@ -468,7 +463,7 @@
             container.innerHTML = '';
             list.forEach(name => {
                 const div = document.createElement('div');
-                div.className = 'bg-white border border-gray-200 p-3 rounded-lg hover:shadow-md transition-all';
+                div.className = 'card-elevated p-3 rounded-xl border border-slate-100 text-sm text-slate-700';
                 div.textContent = name;
                 container.appendChild(div);
             });
@@ -512,7 +507,7 @@
             var total = 0;
             var loaded = 0;
             var fromFile = typeof window !== 'undefined' && window.location && window.location.protocol === 'file:';
-            var sheetsToLoad = fromFile ? _sheets.slice(0, 1) : _sheets;
+            var sheetsToLoad = fromFile ? _sheets.slice(0, 2) : _sheets;
             var totalSheets = sheetsToLoad.length;
             function onSheetDone(name, results) {
                 if (results && results.data && results.data.length > 0) {
@@ -559,17 +554,17 @@
             const select = document.getElementById('dniColumnSelect');
 
             if (isOnline) {
-                dot.className = "relative inline-flex rounded-full h-3 w-3 bg-green-500";
-                ping.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75";
-                text.innerHTML = `Conectado <span class="font-bold text-green-700">(${count})</span>`;
-                badge.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-green-50 border border-green-200";
+                dot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500";
+                ping.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
+                text.innerHTML = `Conectado <span class="font-semibold text-emerald-700">(${count})</span>`;
+                badge.className = "flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200";
                 btn.disabled = false;
                 select.disabled = false;
             } else {
-                dot.className = "bg-red-500 h-3 w-3 rounded-full";
+                dot.className = "bg-red-500 h-2.5 w-2.5 rounded-full";
                 ping.className = "hidden";
                 text.innerText = "Error Conexión";
-                badge.className = "flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 border border-red-200";
+                badge.className = "flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 border border-red-200";
             }
         }
 
@@ -657,9 +652,8 @@
                         return { original: t, norm: abbrMap[norm] || norm };
                     });
 
-                    Object.keys(sheetsData || {}).forEach(function(sheetName) {
-                        var sh = sheetsData[sheetName];
-                        if (!sh || !sh.data) return;
+                    var sh = sheetsData['QR'];
+                    if (sh && sh.data) {
                         var sheetHeaders = sh.headers || [];
                         sh.data.forEach(function(row) {
                             var val = String(row[col] || '').trim();
@@ -678,10 +672,10 @@
                             if (matchedTerm) {
                                 freqMap.set(matchedTerm, (freqMap.get(matchedTerm) || 0) + 1);
                                 if (!foundByTerm[matchedTerm]) foundByTerm[matchedTerm] = [];
-                                foundByTerm[matchedTerm].push({ sheetName: sheetName, row: row, headers: sheetHeaders });
+                                foundByTerm[matchedTerm].push({ sheetName: 'QR', row: row, headers: sheetHeaders });
                             }
                         });
-                    });
+                    }
 
                     var foundList = Object.keys(foundByTerm).map(function(term) {
                         return { term: term, occurrences: foundByTerm[term] };
@@ -689,10 +683,11 @@
                     var foundSet = new Set(Object.keys(foundByTerm));
                     missingList = rawList.filter(function(x) { return !foundSet.has(x); });
 
+                    var qrHeadersAtoH = (sheetsData['QR'] && sheetsData['QR'].headers) ? sheetsData['QR'].headers.slice(0, 8) : [];
                     foundList.forEach(function(f) {
                         f.occurrences.forEach(function(occ) {
                             var r = {};
-                            try { Object.keys(occ.row).forEach(function(k) { r[k] = occ.row[k]; }); } catch(e) {}
+                            qrHeadersAtoH.forEach(function(k) { r[k] = occ.row[k] != null ? occ.row[k] : ''; });
                             r['Hoja'] = occ.sheetName;
                             excelDataExport.push(r);
                         });
@@ -771,9 +766,9 @@
                 var sheetsLabel = item.occurrences.map(function(o) { return o.sheetName; }).join(', ');
                 if (!subtitle) subtitle = 'En: ' + sheetsLabel; else subtitle = subtitle + ' · ' + sheetsLabel;
                 var div = document.createElement('div');
-                div.className = 'bg-white border border-gray-200 p-3 rounded-lg hover:shadow-md cursor-pointer transition-all flex justify-between items-center';
+                div.className = 'card-elevated p-4 rounded-xl cursor-pointer flex justify-between items-center border border-slate-100';
                 div.onclick = function() { openModalPaciente(item); };
-                div.innerHTML = '<div class="overflow-hidden"><p class="text-xs font-bold text-gray-800 truncate">' + title + '</p><p class="text-[10px] text-gray-500 truncate">' + subtitle + '</p></div><i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>';
+                div.innerHTML = '<div class="overflow-hidden min-w-0"><p class="text-sm font-semibold text-slate-800 truncate">' + title + '</p><p class="text-xs text-slate-500 truncate mt-0.5">' + subtitle + '</p></div><i data-lucide="chevron-right" class="w-4 h-4 text-slate-300 flex-shrink-0"></i>';
                 container.appendChild(div);
             });
             lucide.createIcons();
@@ -792,7 +787,7 @@
 
             list.forEach(val => {
                 const btn = document.createElement('button');
-                btn.className = "text-left text-xs bg-white border border-red-100 text-red-600 p-2 rounded hover:bg-red-50 truncate font-mono";
+                btn.className = "text-left text-xs bg-white border border-red-100 text-red-600 p-2.5 rounded-lg hover:bg-red-50 truncate font-mono transition-colors";
                 btn.innerText = val;
                 btn.onclick = () => copyText(val);
                 container.appendChild(btn);
@@ -825,11 +820,11 @@
         function modalShowSheets() {
             if (!_modalPaciente) return;
             var content = document.getElementById('modal-content');
-            content.innerHTML = '<p class="text-sm text-gray-600 mb-3">Aparece en las siguientes hojas. Clic en una para ver la fila completa:</p><div id="modal-sheets-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>';
+            content.innerHTML = '<p class="text-sm text-slate-600 mb-3">Clic en la hoja para ver la fila (columnas A–H):</p><div id="modal-sheets-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>';
             var grid = document.getElementById('modal-sheets-grid');
             _modalPaciente.occurrences.forEach(function(occ) {
                 var card = document.createElement('div');
-                card.className = 'bg-brand-50 border border-brand-200 p-4 rounded-xl cursor-pointer hover:shadow-md hover:border-brand-400 transition-all text-center';
+                card.className = 'bg-brand-50 border border-brand-200 p-4 rounded-xl cursor-pointer hover:bg-brand-100 hover:border-brand-300 transition-all text-center';
                 card.innerHTML = '<span class="font-semibold text-brand-700">' + occ.sheetName + '</span>';
                 card.onclick = function() { modalShowRow(occ); };
                 grid.appendChild(card);
@@ -841,13 +836,13 @@
         function modalShowRow(occ) {
             var content = document.getElementById('modal-content');
             content.innerHTML = '';
-            var headers = occ.headers || [];
+            var headers = (occ.headers || []).slice(0, 8);
             var row = occ.row || {};
             headers.forEach(function(h) {
                 var v = row[h];
                 if (v === undefined || v === null) v = '';
                 var val = String(v).trim();
-                content.innerHTML += '<div class="bg-gray-50 p-3 rounded-lg border border-gray-100 mb-2"><p class="text-[10px] font-bold text-brand-600 uppercase mb-1">' + h + '</p><p class="text-sm text-gray-800 break-words">' + (val || '—') + '</p></div>';
+                content.innerHTML += '<div class="bg-white p-3 rounded-xl border border-slate-100 mb-2 shadow-sm"><p class="text-[10px] font-bold text-brand-600 uppercase tracking-wider mb-1">' + h + '</p><p class="text-sm text-slate-800 break-words">' + (val || '—') + '</p></div>';
             });
             document.getElementById('modal-back-btn').classList.remove('hidden');
         }
@@ -874,9 +869,9 @@
 
         function showToast(type, msg) {
             const box = document.createElement('div');
-            const colors = type === 'success' ? 'bg-gray-800 text-white border-green-500' : 
-                           type === 'error' ? 'bg-white text-red-600 border-red-200' : 'bg-white text-gray-800 border-blue-200';
-            box.className = `p-3 rounded-lg shadow-xl border-l-4 text-sm font-medium animate-bounce-sm mb-2 ${colors}`;
+            const colors = type === 'success' ? 'bg-slate-800 text-white border-emerald-500' : 
+                           type === 'error' ? 'bg-white text-red-600 border-red-300 shadow-lg' : 'bg-white text-slate-800 border-brand-200 shadow-lg';
+            box.className = `p-3 rounded-xl border-l-4 text-sm font-medium shadow-lg ${colors}`;
             box.innerText = msg;
             const container = document.getElementById('toast-container');
             container.appendChild(box);
