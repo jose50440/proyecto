@@ -24,6 +24,7 @@
         window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ldm5ueGppY3lod2t6cmd0YWR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMjc4ODksImV4cCI6MjA4NDcwMzg4OX0._pewkeLOL68mlJ6uIq7yMjDDcISMSZMfdGFK0m3K6KI';
     </script>
     <script src="supabase-db-adapter.js"></script>
+    <script src="print-vinetas.js"></script>
     <script>
     (function(){var _x;window.ensureXLSX=function(){return _x||(_x=new Promise(function(r,e){if(typeof XLSX!=='undefined'){r(window.XLSX);return;}var s=document.createElement('script');s.src='https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js';s.onload=function(){r(window.XLSX);};s.onerror=function(){e(new Error('No se pudo cargar la libreria XLSX'));};document.head.appendChild(s);}));};})();
     </script>
@@ -422,7 +423,7 @@
             );
         };
 
-        const LogisticaListaEsperaBlock = ({ kits, patients, onSaveKit, onRefreshKits, currentUser, initialView, users = [], role }) => {
+        const LogisticaListaEsperaBlock = ({ kits, patients, onSaveKit, onRefreshKits, currentUser, initialView, users = [], role, db, firebaseInitialized }) => {
             const resolveInitial = () => ({
                 vista: ['despachoLogisticaVentanilla','despachoLogisticaRuta'].includes(initialView) ? initialView : (initialView || 'logistica'),
                 tab: initialView === 'bitacora' ? 'bitacora' : 'ventanilla'
@@ -531,38 +532,44 @@
                     .map(u => ({ id: u.id, nombre: (u.nombre||u.username||'').trim() })).filter(u => u.nombre);
             }, [users]);
 
+            // Misma lógica y plantillas que Operaciones (index): usa print-vinetas.js compartido
             const printVinietaLogistica = (kit, tipo) => {
-                const _esc = (s) => { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
                 const pt = (patients||[]).find(p => p.id===kit.patientId || (p.dni&&kit.dni&&String(p.dni).trim()===String(kit.dni).trim()));
-                const nombre = (kit.nombre||pt?.nombre||'').toUpperCase();
-                const dni = (kit.dni||pt?.dni||'').toUpperCase();
-                const fe = kit.fechaArmado||kit.fechaEntregaAsignada||'';
-                const dir = (kit.direccionEntrega||kit.direccionAlternativa||pt?.direccion||'').toUpperCase();
-                const obs = (kit.observacionesEntrega||kit.observations||'').toUpperCase();
-                const meds = kit.medicamentos||[];
-                const cnt = meds.length ? meds.filter(m=>m.dispensar!==false).length + '/' + meds.length : '0/0';
-                const cc = (kit.contactCenter||pt?.agenteContactCenter||'').toUpperCase();
-                const logo = 'https://raw.githubusercontent.com/jose50440/bita/6a46e7144ce075c219a382364b611fa576fc5e4b/img/logo1.png';
-                let html, css, title;
-                if (tipo === 'ruta') {
-                    title = 'Viñeta Ruta';
-                    css = '@page{size:210mm 78mm landscape;margin:0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:210mm;height:78mm;font-family:Arial,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;}.sheet{padding:2mm;display:grid;grid-template-columns:1fr 2fr;gap:2mm;}.c1{font-size:3mm;font-weight:bold;}.c2{border:0.5mm solid #000;padding:2mm;font-size:2.5mm;}.addr{word-break:break-word;}';
-                    html = '<div class="sheet"><div class="c1"><div>'+_esc(nombre)+'</div><div>DNI: '+_esc(dni)+'</div><div>FECHA: '+_esc(fe)+'</div><div>MEDS: '+_esc(cnt)+'</div></div><div class="c2"><div class="addr">'+_esc(dir)+(obs?' | '+_esc(obs):'')+'</div></div></div>';
+                const opts = { db: db || null, firebaseInitialized: !!firebaseInitialized, users: users || [], contacts: [], currentUser: currentUser || {} };
+                if (typeof window.PrintVinetas !== 'undefined') {
+                    const fn = tipo === 'ruta' ? window.PrintVinetas.printRuta : window.PrintVinetas.printVentanilla;
+                    fn(kit, pt || {}, opts).catch(err => { console.error('Error imprimir viñeta:', err); alert('Error al imprimir: ' + (err?.message || err)); });
                 } else {
-                    title = 'Viñeta Ventanilla';
-                    css = '@page{size:71mm 165mm;margin:10mm 0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:71mm;min-height:145mm;font-family:Arial,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;}.sheet{padding:2mm;}.v-box{border:0.5mm solid #000;padding:2mm;margin-bottom:2mm;font-size:2.8mm;}.v-title{text-align:center;font-weight:bold;margin-bottom:3mm;}';
-                    html = '<div class="sheet"><div class="v-title">DEPARTAMENTO DISPENSACIÓN A DOMICILIO</div><div class="v-box">'+_esc(nombre)+'</div><div class="v-box">DNI: '+_esc(dni)+'</div><div class="v-box">FECHA: '+_esc(fe)+'</div><div class="v-box">CC: '+_esc(cc)+'</div><div class="v-box">MEDS: '+_esc(cnt)+'</div><div class="v-box">VENTANILLA</div>'+(obs?'<div class="v-box">'+_esc(obs)+'</div>':'')+'</div>';
+                    const _esc = (s) => { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+                    const nombre = (kit.nombre||pt?.nombre||'').toUpperCase();
+                    const dni = (kit.dni||pt?.dni||'').toUpperCase();
+                    const fe = kit.fechaArmado||kit.fechaEntregaAsignada||'';
+                    const dir = (kit.direccionEntrega||kit.direccionAlternativa||pt?.direccion||'').toUpperCase();
+                    const obs = (kit.observacionesEntrega||kit.observations||'').toUpperCase();
+                    const meds = kit.medicamentos||[];
+                    const cnt = meds.length ? meds.filter(m=>m.dispensar!==false).length + '/' + meds.length : '0/0';
+                    const cc = (kit.contactCenter||pt?.agenteContactCenter||'').toUpperCase();
+                    let html, css, title;
+                    if (tipo === 'ruta') {
+                        title = 'Viñeta Ruta';
+                        css = '@page{size:210mm 78mm landscape;margin:0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:210mm;height:78mm;font-family:Arial,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;}.sheet{padding:2mm;display:grid;grid-template-columns:1fr 2fr;gap:2mm;}.c1{font-size:3mm;font-weight:bold;}.c2{border:0.5mm solid #000;padding:2mm;font-size:2.5mm;}.addr{word-break:break-word;}';
+                        html = '<div class="sheet"><div class="c1"><div>'+_esc(nombre)+'</div><div>DNI: '+_esc(dni)+'</div><div>FECHA: '+_esc(fe)+'</div><div>MEDS: '+_esc(cnt)+'</div></div><div class="c2"><div class="addr">'+_esc(dir)+(obs?' | '+_esc(obs):'')+'</div></div></div>';
+                    } else {
+                        title = 'Viñeta Ventanilla';
+                        css = '@page{size:71mm 165mm;margin:10mm 0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:71mm;min-height:145mm;font-family:Arial,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;}.sheet{padding:2mm;}.v-box{border:0.5mm solid #000;padding:2mm;margin-bottom:2mm;font-size:2.8mm;}.v-title{text-align:center;font-weight:bold;margin-bottom:3mm;}';
+                        html = '<div class="sheet"><div class="v-title">DEPARTAMENTO DISPENSACIÓN A DOMICILIO</div><div class="v-box">'+_esc(nombre)+'</div><div class="v-box">DNI: '+_esc(dni)+'</div><div class="v-box">FECHA: '+_esc(fe)+'</div><div class="v-box">CC: '+_esc(cc)+'</div><div class="v-box">MEDS: '+_esc(cnt)+'</div><div class="v-box">VENTANILLA</div>'+(obs?'<div class="v-box">'+_esc(obs)+'</div>':'')+'</div>';
+                    }
+                    try {
+                        const iframe = document.createElement('iframe');
+                        iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none';
+                        document.body.appendChild(iframe);
+                        const doc = iframe.contentDocument || iframe.contentWindow.document;
+                        doc.open();
+                        doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+_esc(title)+'</title><style>'+css+'</style></head><body>'+html+'</body></html>');
+                        doc.close();
+                        setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 2000); }, 250);
+                    } catch (e) { alert('Error al imprimir: ' + (e?.message || e)); }
                 }
-                try {
-                    const iframe = document.createElement('iframe');
-                    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none';
-                    document.body.appendChild(iframe);
-                    const doc = iframe.contentDocument || iframe.contentWindow.document;
-                    doc.open();
-                    doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+_esc(title)+'</title><style>'+css+'</style></head><body>'+html+'</body></html>');
-                    doc.close();
-                    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 2000); }, 250);
-                } catch (e) { alert('Error al imprimir: ' + (e?.message || e)); }
             };
 
             const handleGuardarTrabajo = async () => {
@@ -1874,7 +1881,7 @@
                         <div className="mobile-content-area flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth relative z-10 min-w-0 mobile-content-pt">
                             {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} kits={kits} currentUser={currentUserForBlocks} permissions={permissions} notifications={notifications} notificationsToday={notificationsToday} notificationPanelOpen={notificationPanelOpen} setNotificationPanelOpen={setNotificationPanelOpen} floatingNotifications={floatingNotifications} />}
                             {['logistica','despachoLogisticaVentanilla','despachoLogisticaRuta'].includes(view) && (
-                                <LogisticaListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} onRefreshKits={refetchKits} currentUser={currentUserData} initialView={view} users={users} role={role} />
+                                <LogisticaListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} onRefreshKits={refetchKits} currentUser={currentUserData} initialView={view} users={users} role={role} db={db} firebaseInitialized={firebaseInitialized} />
                             )}
                             {['reports','config','users'].includes(view) && <RedirectToIndex />}
                         </div>

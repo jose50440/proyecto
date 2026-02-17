@@ -6529,7 +6529,7 @@
         };
 
         // --- BLOCK: PACIENTES ---
-        const PatientManagementBlock = ({ patients: patientsProp, kits: kitsProp, medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, onReportExcelUpload, currentUser, userRole, contacts, printRutaVignette, printVentanillaVignette, printRefrigeradoVignette, users = [], onOpenTrabajarKit }) => {
+        const PatientManagementBlock = ({ patients: patientsProp, kits: kitsProp, medicines, onAddPatient, onUpdatePatient, onDeletePatient, onSaveKit, onDeleteKit, onReportExcelUpload, currentUser, userRole, contacts, printRutaVignette, printVentanillaVignette, printRefrigeradoVignette, users = [], onOpenTrabajarKit, db: dbPacientes }) => {
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedPatient, setSelectedPatient] = useState(null);
             const [selectedPatientFullData, setSelectedPatientFullData] = useState(null);
@@ -6553,10 +6553,11 @@
             
             // Determinar si el usuario necesita pestañas
             const userDept = currentUser?.departamento || '';
-            const userDeptLower = (userDept || '').toLowerCase();
-            const userRoles = currentUser?.rolesDepartamento || [];
-            const isAgenteContactCenter = userDeptLower === 'contact center' && userRoles.includes('agente contact center');
-            const isRevisionAsignacion = userDeptLower === 'farmacia' && userRoles.includes('revision y asignacion');
+            const userDeptLower = (userDept || '').toLowerCase().trim();
+            const userRoles = Array.isArray(currentUser?.rolesDepartamento) ? currentUser.rolesDepartamento : [];
+            const roleMatch = (roleName) => userRoles.some(r => String(r || '').toLowerCase().trim() === roleName);
+            const isAgenteContactCenter = userDeptLower === 'contact center' && roleMatch('agente contact center');
+            const isRevisionAsignacion = userDeptLower === 'farmacia' && roleMatch('revision y asignacion');
             const needsTabs = isAgenteContactCenter || isRevisionAsignacion;
             const canCreateKits = isRevisionAsignacion; // Solo farmacia revisión y asignación crean kits
             const canCreatePatients = userRole === 'admin' || userRole === 'superadmin' ||
@@ -7196,9 +7197,10 @@
                                u.trabajoCompartido === true;
                     }
                     if (isRevisionAsignacion) {
-                        return u.departamento === 'farmacia' && 
-                               u.rolesDepartamento?.includes('revision y asignacion') &&
-                               u.trabajoCompartido === true;
+                        const dept = (u.departamento || '').toLowerCase().trim();
+                        const roles = Array.isArray(u.rolesDepartamento) ? u.rolesDepartamento : [];
+                        const hasRev = roles.some(r => String(r || '').toLowerCase().trim() === 'revision y asignacion');
+                        return dept === 'farmacia' && hasRev && u.trabajoCompartido === true;
                     }
                     return false;
                 });
@@ -11358,8 +11360,9 @@ html +
                             )}
                             </>
                         ) : (activePatientTab === 'renovar' || activePatientTab === 'medsNoVan') && (isRevisionAsignacion || isAgenteContactCenter) ? (() => {
+                            try {
                             const esRenovar = activePatientTab === 'renovar';
-                            const plist = (allPatients && allPatients.length > 0) ? allPatients : (patients || []);
+                            const plist = Array.isArray(allPatients) && allPatients.length > 0 ? allPatients : (Array.isArray(patients) ? patients : []);
                             const hayQueRenovar = (m) => {
                                 if (!m || typeof m !== 'object') return false;
                                 const v = m.hayQueRenovarRecetas;
@@ -11371,24 +11374,29 @@ html +
                             const filtroMeds = esRenovar ? hayQueRenovar : noVa;
                             const kitsAll = Array.isArray(kits) ? kits : [];
                             const porPaciente = {};
-                            kitsAll.forEach(k => {
-                                const medsArr = Array.isArray(k.medicamentos) ? k.medicamentos : (Array.isArray(k.payload && k.payload.medicamentos) ? k.payload.medicamentos : []);
-                                const medsFiltrados = medsArr.filter(filtroMeds);
-                                if (medsFiltrados.length === 0) return;
-                                if (esRenovar && (k.yaRenovoRecetas === true || k.yaRenovoRecetas === 'true' || String(k.yaRenovoRecetas).toLowerCase() === 'true')) return;
-                                const pt = plist.find(p => (p && p.id) === k.patientId || (p && p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
-                                const pid = (k.patientId || pt?.id || k.id || '').toString();
+                            for (let i = 0; i < kitsAll.length; i++) {
+                                const k = kitsAll[i];
+                                if (!k || typeof k !== 'object') continue;
+                                const medsArr = Array.isArray(k.medicamentos) ? k.medicamentos : (k.payload && Array.isArray(k.payload.medicamentos) ? k.payload.medicamentos : []);
+                                const medsFiltrados = medsArr.filter(m => m && filtroMeds(m));
+                                if (medsFiltrados.length === 0) continue;
+                                if (esRenovar && (k.yaRenovoRecetas === true || k.yaRenovoRecetas === 'true' || String(k.yaRenovoRecetas || '').toLowerCase() === 'true')) continue;
+                                const pt = plist.find(p => p && ((p.id === k.patientId) || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim())));
+                                const pid = String(k.patientId || (pt && pt.id) || k.id || ('kit_' + i));
                                 if (!porPaciente[pid]) porPaciente[pid] = { kit: k, pt: pt || null, meds: [] };
-                                medsFiltrados.forEach(m => {
+                                const fechaBase = (k.fechaArmado || (k.fechaEntregaLogistica || '').toString().slice(0, 10) || new Date().toISOString().split('T')[0]);
+                                for (let j = 0; j < medsFiltrados.length; j++) {
+                                    const m = medsFiltrados[j];
+                                    if (!m) continue;
                                     porPaciente[pid].meds.push({
                                         med: m,
                                         hayQueRenovar: !!m.hayQueRenovarRecetas,
-                                        fecha: m.fechaIndicadaRenovar || k.fechaArmado || (k.fechaEntregaLogistica || '').toString().slice(0, 10) || new Date().toISOString().split('T')[0]
+                                        fecha: (m.fechaIndicadaRenovar || '').toString().trim().slice(0, 10) || fechaBase
                                     });
-                                });
-                            });
-                            const entradas = Object.values(porPaciente);
-                            const formatearF = (f) => { try { return f ? new Date((f + '').slice(0, 10) + 'T12:00:00').toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'; } catch { return f || '—'; } };
+                                }
+                            }
+                            const entradas = Object.values(porPaciente).filter(Boolean);
+                            const formatearF = (f) => { try { const s = (f == null || f === '') ? '' : String(f).slice(0, 10); return s ? new Date(s + 'T12:00:00').toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'; } catch { return '—'; } };
                             const pacienteExpandido = renovarPatientSeleccionado;
                             const modalMedsNoVan = medsNoVanModalPaciente;
                             return (
@@ -11427,7 +11435,7 @@ html +
                                                         ))}
                                                     </div>
                                                     {isAgenteContactCenter && (
-                                                        <button type="button" onClick={async () => { if (!confirm(`¿Confirmar que ${pacienteExpandido.kit?.nombre || pacienteExpandido.pt?.nombre} ya renovó las recetas?`)) return; try { if (onSaveKit && pacienteExpandido.kit) await onSaveKit(pacienteExpandido.kit.id, { yaRenovoRecetas: true, fechaYaRenovo: new Date().toISOString().split('T')[0] }, pacienteExpandido.kit.patientId, true); setRenovarPatientSeleccionado(null); } catch (e) { alert('Error: ' + (e?.message || e)); } }} className="mt-4 w-full py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700">
+                                                        <button type="button" onClick={async () => { if (!confirm(`¿Confirmar que ${pacienteExpandido.kit?.nombre || pacienteExpandido.pt?.nombre} ya renovó las recetas?`)) return; try { const nombrePac = pacienteExpandido.kit?.nombre || pacienteExpandido.pt?.nombre || '—'; const dniPac = pacienteExpandido.kit?.dni || pacienteExpandido.pt?.dni || '—'; const fechaNotif = new Date().toISOString().split('T')[0]; const fechaNotifFmt = new Date().toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' }); const agenteCC = (currentUser?.nombre || currentUser?.username || currentUser?.name || 'Agente CC').trim(); if (onSaveKit && pacienteExpandido.kit) await onSaveKit(pacienteExpandido.kit.id, { yaRenovoRecetas: true, fechaYaRenovo: fechaNotif }, pacienteExpandido.kit.patientId, true); window.dispatchEvent(new CustomEvent('notify-renovo', { detail: { paciente: nombrePac, dni: dniPac, origen: 'Agente CC: ' + agenteCC } })); if (dbPacientes) { const textoNota = `Paciente ${nombrePac} (DNI ${dniPac}) renovó recetas. Ya fue notificado el ${fechaNotifFmt} por el agente de CC ${agenteCC} a Revisión y Asignación.`; try { await dbPacientes.collection('prod_patient_reports').add({ type: 'renovo_notificado', by: agenteCC, patientId: pacienteExpandido.kit.patientId || null, dni: dniPac, nombre: nombrePac, added: { texto: textoNota, fecha: fechaNotif, agenteCC } }); } catch (errBit) { console.warn('Bitácora renovo:', errBit); } } setRenovarPatientSeleccionado(null); } catch (e) { alert('Error: ' + (e?.message || e)); } }} className="mt-4 w-full py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700">
                                                             Ya renovó recetas
                                                         </button>
                                                     )}
@@ -11438,7 +11446,7 @@ html +
                                                         <button key={(e.kit?.id || idx) + '_' + (e.pt?.id || '')} onClick={() => setRenovarPatientSeleccionado(e)} className="p-4 bg-white rounded-2xl border-2 border-violet-200 hover:border-violet-400 text-left transition-all">
                                                             <div className="font-bold text-slate-800">{e.kit?.nombre || e.pt?.nombre || '—'}</div>
                                                             <div className="text-slate-500 font-mono text-xs mt-1">{e.kit?.dni || e.pt?.dni || '—'}</div>
-                                                            <div className="text-xs text-violet-600 font-semibold mt-2">{e.meds.length} medicamento(s) a renovar</div>
+                                                            <div className="text-xs text-violet-600 font-semibold mt-2">{(e.meds || []).length} medicamento(s) a renovar</div>
                                                         </button>
                                                     ))}
                                                 </div>
@@ -11458,7 +11466,7 @@ html +
                                                         <button key={(e.kit?.id || idx) + '_m_' + (e.pt?.id || '')} onClick={() => setMedsNoVanModalPaciente(e)} className="p-4 bg-white rounded-2xl border-2 border-red-200 hover:border-red-400 text-left transition-all shadow-sm hover:shadow">
                                                             <div className="font-bold text-slate-800">{e.kit?.nombre || e.pt?.nombre || '—'}</div>
                                                             <div className="text-slate-500 font-mono text-xs mt-1">{e.kit?.dni || e.pt?.dni || '—'}</div>
-                                                            <div className="text-xs text-red-600 font-semibold mt-2">{e.meds.length} med(s) que no van</div>
+                                                            <div className="text-xs text-red-600 font-semibold mt-2">{(e.meds || []).length} med(s) que no van</div>
                                                         </button>
                                                     ))}
                                                 </div>
@@ -11490,6 +11498,15 @@ html +
                                     )}
                                 </div>
                             );
+                            } catch (err) {
+                                console.error('Error en pestaña Renovar/MedsNoVan:', err);
+                                return (
+                                    <div className="p-6 rounded-2xl border border-red-200 bg-red-50/50 text-center">
+                                        <p className="text-red-700 font-semibold">No se pudo cargar la lista.</p>
+                                        <p className="text-slate-600 text-sm mt-2">Revisa la consola (F12) o recarga la página.</p>
+                                    </div>
+                                );
+                            }
                         })() : needsTabs && activePatientTab === 'asignados' && Object.keys(patientsByUser).length > 0 ? (
                             <div className="space-y-4">
                                 {!selectedFolderKey ? (
@@ -14855,6 +14872,9 @@ Responde en formato JSON con esta estructura:
                     if(isUpdate) {
                         await db.collection('prod_kits').doc(id).update(data);
                         console.log("✅ Kit actualizado: ", id);
+                        if (data.recetaImpresa === true || data.recetaImpresa === 'true') {
+                            window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'kit_impreso_despacho', paciente: data.nombre || '—', dni: data.dni || '—', origen: 'Revisión y Asignación' } }));
+                        }
                         try { await refetchKits(); } catch (e) { console.warn('Refetch kits post-update:', e); }
                     } else {
                         const result = await db.collection('prod_kits').add({
@@ -15052,11 +15072,11 @@ Responde en formato JSON con esta estructura:
                 const sys = role || '';
                 const hasRevAsignacion = dep === 'farmacia' && roles.includes('revision y asignacion');
                 const isAgenteContactCenter = dep === 'contact center' && roles.includes('agente contact center');
-                const showNotifications = hasRevAsignacion || isAgenteContactCenter || sys === 'admin' || sys === 'superadmin';
+                const showDespacho = dep === 'farmacia' && roles.includes('despacho medicamentos');
+                const showNotifications = hasRevAsignacion || isAgenteContactCenter || showDespacho || sys === 'admin' || sys === 'superadmin';
                 const showCalendario = sys === 'admin' || sys === 'superadmin' ||
                     (dep === 'contact center' && roles.includes('agente contact center')) ||
                     hasRevAsignacion;
-                const showDespacho = dep === 'farmacia' && roles.includes('despacho medicamentos');
                 const onlyDespacho = showDespacho && !hasRevAsignacion;
                 const showOperaciones = dep === 'operaciones' && (roles.includes('operador de empaque') || roles.includes('supervisor'));
                 const showCalidad = dep === 'calidad' && (roles.includes('agente de calidad') || roles.includes('supervisor'));
@@ -15149,7 +15169,7 @@ Responde en formato JSON con esta estructura:
             useEffect(() => {
                 if (!showNotifications) return;
                 const playSound = (tipo) => {
-                    const src = tipo === 'kit_entregado' ? './alertaentrega.mp3' : './alertadash.mp3';
+                    const src = tipo === 'kit_entregado' ? './alertaentrega.mp3' : tipo === 'kit_impreso_despacho' ? './alertadespacho.mp3' : './alertadash.mp3';
                     try { const a = new Audio(src); a.volume = 1; a.play().catch(() => {}); } catch (_) {}
                 };
                 const handler = (e) => {
@@ -15160,6 +15180,7 @@ Responde en formato JSON con esta estructura:
                     setFloatingNotifications(prev => [...prev, n]);
                     setTimeout(() => setFloatingNotifications(prev => prev.filter(x => x.id !== n.id)), 30000);
                     if (tipo === 'kit_entregado') playSound('kit_entregado');
+                    else if (tipo === 'kit_impreso_despacho') playSound('kit_impreso_despacho');
                     else if (d.skipSound !== true) playSound('asignacion');
                 };
                 window.addEventListener('notify-renovo', handler);
@@ -15371,9 +15392,9 @@ Responde en formato JSON con esta estructura:
                                                 {notificationsToday.length === 0 ? (
                                                     <p className="text-sm text-slate-400 py-6 text-center">Sin notificaciones hoy</p>
                                                 ) : notificationsToday.map(n => (
-                                                    <div key={n.id} className={`p-3 mb-2 rounded-xl border text-sm ${n.tipo === 'kit_entregado' ? 'bg-emerald-50 border-emerald-200' : n.tipo === 'asignacion' ? 'bg-indigo-50 border-indigo-100' : n.tipo === 'asignacion_admin' ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'}`}>
-                                                        <div className={`font-bold ${n.tipo === 'kit_entregado' ? 'text-emerald-800' : n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
-                                                            {n.tipo === 'kit_entregado' ? 'Kit entregado' : n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
+                                                    <div key={n.id} className={`p-3 mb-2 rounded-xl border text-sm ${n.tipo === 'kit_entregado' ? 'bg-emerald-50 border-emerald-200' : n.tipo === 'kit_impreso_despacho' ? 'bg-violet-50 border-violet-200' : n.tipo === 'asignacion' ? 'bg-indigo-50 border-indigo-100' : n.tipo === 'asignacion_admin' ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'}`}>
+                                                        <div className={`font-bold ${n.tipo === 'kit_entregado' ? 'text-emerald-800' : n.tipo === 'kit_impreso_despacho' ? 'text-violet-800' : n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
+                                                            {n.tipo === 'kit_entregado' ? 'Kit entregado' : n.tipo === 'kit_impreso_despacho' ? 'Kit impreso — Lista Despacho' : n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
                                                         </div>
                                                         <div className="text-slate-600">{n.paciente} — {n.dni}</div>
                                                         {n.origen && <div className="text-xs text-slate-500">{n.origen}</div>}
@@ -15385,9 +15406,9 @@ Responde en formato JSON con esta estructura:
                                 </div>
                                 <div className="fixed bottom-4 right-4 z-[64] flex flex-col gap-2 max-w-[340px] pointer-events-none">
                                     {floatingNotifications.map(n => (
-                                        <div key={n.id} className={`pointer-events-auto p-4 bg-white rounded-2xl shadow-xl border-l-4 animate-in ${n.tipo === 'kit_entregado' ? 'border-emerald-500' : n.tipo === 'asignacion' ? 'border-indigo-500' : n.tipo === 'asignacion_admin' ? 'border-amber-500' : 'border-green-500'}`}>
-                                            <div className={`font-bold text-sm ${n.tipo === 'kit_entregado' ? 'text-emerald-800' : n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
-                                                {n.tipo === 'kit_entregado' ? 'Kit entregado' : n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
+                                        <div key={n.id} className={`pointer-events-auto p-4 bg-white rounded-2xl shadow-xl border-l-4 animate-in ${n.tipo === 'kit_entregado' ? 'border-emerald-500' : n.tipo === 'kit_impreso_despacho' ? 'border-violet-500' : n.tipo === 'asignacion' ? 'border-indigo-500' : n.tipo === 'asignacion_admin' ? 'border-amber-500' : 'border-green-500'}`}>
+                                            <div className={`font-bold text-sm ${n.tipo === 'kit_entregado' ? 'text-emerald-800' : n.tipo === 'kit_impreso_despacho' ? 'text-violet-800' : n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
+                                                {n.tipo === 'kit_entregado' ? 'Kit entregado' : n.tipo === 'kit_impreso_despacho' ? 'Kit impreso — Lista Despacho' : n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
                                             </div>
                                             <div className="text-slate-600 text-sm">{n.paciente} — {n.dni}</div>
                                             {n.origen && <div className="text-xs text-slate-500">{n.origen}</div>}
@@ -15421,7 +15442,7 @@ Responde en formato JSON con esta estructura:
                             {view === 'operaciones' && showOperaciones && <OperacionesListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserForBlocks} users={users} role={role} printRutaVignette={printRutaVignette} printVentanillaVignette={printVentanillaVignette} printRefrigeradoVignette={printRefrigeradoVignette} pendingTrabajarKitId={pendingTrabajarKitId} onClearPendingTrabajarKit={clearPendingTrabajarKit} />}
                             {view === 'calidad' && showCalidad && <CalidadListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} onRefreshKits={refetchKits} currentUser={currentUserForBlocks} users={users} role={role} />}
                             {view === 'bitacora' && showBitacoraTrabajo && <BitacoraTrabajoBlock kits={kits} patients={patients} currentUser={currentUserForBlocks} />}
-                            {view === 'pacientes' && canViewPacientes && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} onReportExcelUpload={reportExcelUploadBatch} currentUser={currentUserForBlocks} userRole={role} contacts={contacts} printRutaVignette={printRutaVignette} printVentanillaVignette={printVentanillaVignette} printRefrigeradoVignette={printRefrigeradoVignette} users={users} onOpenTrabajarKit={showOperaciones ? openTrabajarFromPacientes : undefined} />}
+                            {view === 'pacientes' && canViewPacientes && <PatientManagementBlock patients={patients} kits={kits} medicines={medicines} onAddPatient={addPatient} onUpdatePatient={updatePatient} onDeletePatient={deletePatient} onSaveKit={saveKit} onDeleteKit={deleteKit} onReportExcelUpload={reportExcelUploadBatch} currentUser={currentUserForBlocks} userRole={role} contacts={contacts} printRutaVignette={printRutaVignette} printVentanillaVignette={printVentanillaVignette} printRefrigeradoVignette={printRefrigeradoVignette} users={users} onOpenTrabajarKit={showOperaciones ? openTrabajarFromPacientes : undefined} db={db} />}
                             {view === 'config' && canViewConfig && <ConfigBlock medicines={medicines} onAddList={addMedsList} onDeleteMedicines={deleteMedicines} contacts={contacts} onAddContact={addContact} onDeleteContact={deleteContact} />}
                             {view === 'users' && canViewConfig && <UserManagementBlock users={users} onAddUser={addUser} onUpdateUser={updateUser} onDeleteUser={deleteUser} />}
                             {((view === 'reports' && !canViewReports) || (view === 'calendario' && !showCalendario) || (view === 'despacho' && !showDespacho) || (view === 'operaciones' && !showOperaciones) || (view === 'calidad' && !showCalidad) || (view === 'bitacora' && !showBitacoraTrabajo) || (view === 'pacientes' && !canViewPacientes) || ((view === 'config' || view === 'users') && !canViewConfig)) && (
