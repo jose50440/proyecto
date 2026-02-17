@@ -58,7 +58,8 @@ CREATE TABLE IF NOT EXISTS prod_users (
     "diasPermitidos" JSONB DEFAULT '{}',
     "horaInicio" TEXT,
     "horaFin" TEXT,
-    telefono TEXT
+    telefono TEXT,
+    "trabajoCompartido" BOOLEAN DEFAULT false
 );
 
 CREATE INDEX IF NOT EXISTS idx_prod_users_username ON prod_users(username);
