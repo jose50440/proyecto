@@ -48,9 +48,38 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .toggle-checkbox:checked { right: 0; border-color: #10b981; }
         .toggle-checkbox:checked + .toggle-label { background-color: #10b981; }
+        .main-tab.active { color: #0d9488; border-bottom: 2px solid #0d9488; background-color: #f0fdfa; }
     </style>
 </head>
 <body class="text-gray-800 font-sans min-h-screen flex flex-col overflow-x-hidden">
+
+    <!-- Pantalla de Login -->
+    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-brand-500/10 via-gray-50 to-accent-500/10">
+        <div class="glass-panel rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4">
+            <div class="text-center mb-8">
+                <div class="inline-flex bg-gradient-to-br from-brand-500 to-accent-500 p-4 rounded-2xl shadow-lg text-white mb-4">
+                    <i data-lucide="lock" class="w-10 h-10"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800">Portal Clínico</h1>
+                <p class="text-sm text-gray-500 mt-1">Inicie sesión para continuar</p>
+            </div>
+            <form id="login-form" onsubmit="return doLogin(event)" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-600 mb-2">Usuario</label>
+                    <input type="text" id="login-user" autocomplete="username" placeholder="Usuario" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500" required />
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-600 mb-2">Contraseña</label>
+                    <input type="password" id="login-pass" autocomplete="current-password" placeholder="Contraseña" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500" required />
+                </div>
+                <p id="login-error" class="text-sm text-red-600 hidden"></p>
+                <button type="submit" class="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-accent-600 to-brand-600 hover:from-accent-500 hover:to-brand-500 shadow-lg transition-all">Ingresar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contenedor principal (visible solo tras login) -->
+    <div id="app-container" class="hidden flex flex-col min-h-screen">
 
     <!-- Navbar -->
     <nav class="sticky top-0 z-40 w-full glass-panel border-b border-gray-200/50 shadow-sm">
@@ -65,20 +94,31 @@
                         <p class="text-[10px] font-semibold text-brand-600 uppercase tracking-wider">Gestión de Pacientes</p>
                     </div>
                 </div>
-                <div id="connection-badge" class="flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-gray-100 border border-gray-200">
-                    <div class="relative flex h-3 w-3">
-                        <span id="status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                        <span id="status-dot" class="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span>
+                <div class="flex items-center gap-3">
+                    <div id="connection-badge" class="flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-gray-100 border border-gray-200">
+                        <div class="relative flex h-3 w-3">
+                            <span id="status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                            <span id="status-dot" class="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span>
+                        </div>
+                        <span id="connection-text" class="text-xs font-medium text-gray-600">Conectando...</span>
                     </div>
-                    <span id="connection-text" class="text-xs font-medium text-gray-600">Conectando...</span>
+                    <button type="button" onclick="logout()" class="text-xs text-gray-500 hover:text-red-600 font-medium flex items-center gap-1">Cerrar sesión</button>
                 </div>
             </div>
         </div>
     </nav>
 
+    <!-- Tabs principales -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-2 w-full">
+        <div class="flex gap-1 border-b border-gray-200">
+            <button type="button" id="nav-tab-busqueda" onclick="switchMainTab('busqueda')" class="main-tab active px-4 py-2 text-sm font-medium rounded-t-lg transition-colors">Búsqueda / QR</button>
+            <button type="button" id="nav-tab-medicamentos" onclick="switchMainTab('medicamentos')" class="main-tab px-4 py-2 text-sm font-medium text-gray-500 rounded-t-lg hover:text-gray-700 transition-colors">Lista de Medicamentos</button>
+        </div>
+    </div>
+
     <!-- Contenido -->
-    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full">
+        <div id="content-busqueda" class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             <!-- Panel Izquierdo: Config -->
             <div class="lg:col-span-4 space-y-6">
@@ -236,7 +276,27 @@
                 </div>
             </div>
         </div>
+        <!-- Panel Medicamentos (misma página, otro tab) -->
+        <div id="content-medicamentos" class="hidden">
+            <div class="glass-panel rounded-2xl shadow-xl p-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="bg-brand-100 p-1.5 rounded-md text-brand-600"><i data-lucide="pill" class="w-5 h-5"></i></span>
+                    Buscar medicamentos
+                </h2>
+                <p class="text-sm text-gray-600 mb-4">Filtra por nombre del medicamento del listado cargado desde la hoja de datos.</p>
+                <div class="relative mb-6">
+                    <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i>
+                    <input type="text" id="medicamento-filter" placeholder="Escriba para buscar (ej: amlodipina, aspirina)..." class="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500" oninput="filterMedicamentos()" />
+                </div>
+                <div id="medicamentos-list" class="max-h-[60vh] overflow-y-auto custom-scrollbar grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                </div>
+                <p id="medicamentos-count" class="text-sm text-gray-500 mt-4"></p>
+            </div>
+        </div>
     </main>
+
+    </div>
+    <!-- fin app-container -->
 
     <!-- Modal -->
     <div id="patient-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
@@ -259,11 +319,17 @@
     <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
     <script>
-        // --- CONFIGURACIÓN E INICIO ---
-        const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRa0vyPEon_Qo05--034ulksoi9PC_e_Ew1zMqJA4t5_d333QnXHyHp8yzQBcOPGBz7sHOYq2j-n5eC/pub?gid=375135436&single=true&output=csv';
+        // --- CONFIGURACIÓN E INICIO (datos no expuestos en fuente) ---
+        (function() {
+            var _k = 0x2a;
+            window._d = function(a, k) { k = k || _k; return a.map(function(c) { return String.fromCharCode((c ^ k) & 0xff); }).join(''); };
+            window._b = function(s) { try { return (typeof atob !== 'undefined' ? atob(s) : ''); } catch(e) { return ''; } };
+        })();
+        var _1 = [75,78,71,67,68], _2 = [66,88,68,24,26,24,28], _3 = 'aHR0cHM6Ly9kb2NzLmdvb2dsZS5jb20vc3ByZWFkc2hlZXRzL2QvZS8yUEFDWC0xdlJhMHZ5UEVvbl9RbzA1LS0wMzR1bGtzb2k5UENfZV9FdzF6TXFKQTR0NV9kMzMzUW5YSHlIcDh5elFCY09QR0J6N3NIT1lxMmotbjVlQy9wdWI/Z2lkPTM3NTEzNTQzNiZzaW5nbGU9dHJ1ZSZvdXRwdXQ9Y3N2';
         let dbData = [];
         let headers = [];
-        let excelDataExport = []; // Variable global para guardar los datos a exportar
+        let excelDataExport = [];
+        let medicamentosList = []; // Lista única de nombres de medicamentos para la pestaña
         
         // Diccionario Inteligente
         const abbrMap = {
@@ -275,11 +341,124 @@
         // Inicializar
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
-            loadDatabase();
+            if (isLoggedIn()) {
+                showApp();
+                loadDatabase();
+            } else {
+                document.getElementById('login-screen').classList.remove('hidden');
+            }
         });
 
+        function isLoggedIn() {
+            return sessionStorage.getItem('portal_clinico_auth') === '1';
+        }
+
+        function doLogin(e) {
+            e.preventDefault();
+            const user = (document.getElementById('login-user').value || '').trim();
+            const pass = (document.getElementById('login-pass').value || '');
+            const errEl = document.getElementById('login-error');
+            if (user === _d(_1) && pass === _d(_2)) {
+                sessionStorage.setItem('portal_clinico_auth', '1');
+                errEl.classList.add('hidden');
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('app-container').classList.remove('hidden');
+                document.getElementById('app-container').classList.add('flex');
+                loadDatabase();
+                lucide.createIcons();
+                return false;
+            }
+            errEl.textContent = 'Usuario o contraseña incorrectos.';
+            errEl.classList.remove('hidden');
+            return false;
+        }
+
+        function showApp() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+            document.getElementById('app-container').classList.add('flex');
+        }
+
+        function logout() {
+            sessionStorage.removeItem('portal_clinico_auth');
+            document.getElementById('app-container').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('flex');
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('login-user').value = '';
+            document.getElementById('login-pass').value = '';
+            document.getElementById('login-error').classList.add('hidden');
+        }
+
+        function switchMainTab(tab) {
+            const busqueda = document.getElementById('content-busqueda');
+            const medicamentos = document.getElementById('content-medicamentos');
+            const btnBusqueda = document.getElementById('nav-tab-busqueda');
+            const btnMedicamentos = document.getElementById('nav-tab-medicamentos');
+            if (tab === 'busqueda') {
+                busqueda.classList.remove('hidden');
+                medicamentos.classList.add('hidden');
+                btnBusqueda.classList.add('active', 'text-brand-600');
+                btnBusqueda.classList.remove('text-gray-500');
+                btnMedicamentos.classList.remove('active', 'text-brand-600');
+                btnMedicamentos.classList.add('text-gray-500');
+            } else {
+                busqueda.classList.add('hidden');
+                medicamentos.classList.remove('hidden');
+                btnMedicamentos.classList.add('active', 'text-brand-600');
+                btnMedicamentos.classList.remove('text-gray-500');
+                btnBusqueda.classList.remove('active', 'text-brand-600');
+                btnBusqueda.classList.add('text-gray-500');
+            }
+            lucide.createIcons();
+        }
+
+        function buildMedicamentosList() {
+            const obsKey = headers.find(h => /observacion/i.test(h));
+            const set = new Set();
+            const splitRegex = /[,;]|\s+y\s+|\/\s*|\s+\/\s+/;
+            const stopWords = /^(solo|en|ventanilla|fisica|no|hay|disponible|dispensar|los|por|el|la|de|para|que|se|le|los|las|un|una|paso|pasar|consultar|receta|recetas)$/i;
+            if (obsKey && dbData.length) {
+                dbData.forEach(row => {
+                    const text = String(row[obsKey] || '');
+                    text.split(splitRegex).forEach(part => {
+                        let name = part
+                            .replace(/\s*(?:solo en|ventanilla|fisica|no hay|no disponible|solo esta|solo se).*$/i, '')
+                            .replace(/\s*\(\s*refrigerado\s*\)\s*$/i, '')
+                            .trim();
+                        if (name.length >= 3 && /[a-záéíóúñ]/i.test(name) && !stopWords.test(name) && !/^\d+$/.test(name)) {
+                            set.add(name);
+                        }
+                    });
+                });
+            }
+            medicamentosList = Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
+            renderMedicamentosList(medicamentosList);
+        }
+
+        function filterMedicamentos() {
+            const q = (document.getElementById('medicamento-filter').value || '').trim();
+            const norm = cleanString(q);
+            const filtered = q
+                ? medicamentosList.filter(name => cleanString(name).includes(norm))
+                : medicamentosList;
+            renderMedicamentosList(filtered);
+        }
+
+        function renderMedicamentosList(list) {
+            const container = document.getElementById('medicamentos-list');
+            const countEl = document.getElementById('medicamentos-count');
+            container.innerHTML = '';
+            list.forEach(name => {
+                const div = document.createElement('div');
+                div.className = 'bg-white border border-gray-200 p-3 rounded-lg hover:shadow-md transition-all';
+                div.textContent = name;
+                container.appendChild(div);
+            });
+            countEl.textContent = list.length + ' medicamento(s)';
+        }
+
         function loadDatabase() {
-            Papa.parse(SHEET_URL, {
+            Papa.parse(_b(_3), {
                 download: true,
                 header: true,
                 skipEmptyLines: true,
@@ -289,6 +468,7 @@
                     if (dbData.length > 0) {
                         setOnlineStatus(true, dbData.length);
                         populateSelect();
+                        buildMedicamentosList();
                     } else {
                         showToast('error', 'Base de datos vacía');
                     }
