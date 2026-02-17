@@ -102,6 +102,9 @@
                         </div>
                         <span id="connection-text" class="text-xs font-medium text-gray-600">Conectando...</span>
                     </div>
+                    <div id="file-origin-alert" class="hidden max-w-md rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        <strong>Abriste la app desde un archivo (file://).</strong> Para cargar datos, en la carpeta del proyecto ejecuta <code class="bg-amber-100 px-1 rounded">npm start</code> o <code class="bg-amber-100 px-1 rounded">npx serve .</code> y abre <code class="bg-amber-100 px-1 rounded">http://localhost:3000</code>
+                    </div>
                     <button type="button" onclick="logout()" class="text-xs text-gray-500 hover:text-red-600 font-medium flex items-center gap-1">Cerrar sesión</button>
                 </div>
             </div>
@@ -303,12 +306,13 @@
         <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity" onclick="closeModal()"></div>
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
-            <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
                 <div class="bg-brand-600 px-4 py-4 flex justify-between items-center">
-                    <h3 class="text-lg font-medium text-white" id="modal-title">Detalle</h3>
+                    <h3 class="text-lg font-medium text-white" id="modal-title">Paciente</h3>
+                    <button type="button" id="modal-back-btn" class="hidden text-white hover:bg-brand-700 px-3 py-1 rounded text-sm font-medium" onclick="modalShowSheets()">← Volver</button>
                     <button onclick="closeModal()" class="text-white hover:bg-brand-700 p-1 rounded"><i data-lucide="x" class="w-5 h-5"></i></button>
                 </div>
-                <div class="px-4 py-5 max-h-[60vh] overflow-y-auto custom-scrollbar" id="modal-content"></div>
+                <div class="px-4 py-5 max-h-[65vh] overflow-y-auto custom-scrollbar" id="modal-content"></div>
                 <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse">
                     <button type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-brand-600 text-base font-medium text-white hover:bg-brand-700 sm:ml-3 sm:w-auto sm:text-sm" onclick="closeModal()">Cerrar</button>
                 </div>
@@ -325,11 +329,21 @@
             window._d = function(a, k) { k = k || _k; return a.map(function(c) { return String.fromCharCode((c ^ k) & 0xff); }).join(''); };
             window._b = function(s) { try { return (typeof atob !== 'undefined' ? atob(s) : ''); } catch(e) { return ''; } };
         })();
-        var _1 = [75,78,71,67,68], _2 = [66,88,68,24,26,24,28], _3 = 'aHR0cHM6Ly9kb2NzLmdvb2dsZS5jb20vc3ByZWFkc2hlZXRzL2QvZS8yUEFDWC0xdlJhMHZ5UEVvbl9RbzA1LS0wMzR1bGtzb2k5UENfZV9FdzF6TXFKQTR0NV9kMzMzUW5YSHlIcDh5elFCY09QR0J6N3NIT1lxMmotbjVlQy9wdWI/Z2lkPTM3NTEzNTQzNiZzaW5nbGU9dHJ1ZSZvdXRwdXQ9Y3N2';
+        var _1 = [75,78,71,67,68], _2 = [66,88,68,24,26,24,28], _3 = 'aHR0cHM6Ly9kb2NzLmdvb2dsZS5jb20vc3ByZWFkc2hlZXRzL2QvZS8yUEFDWC0xdlJhMHZ5UEVvbl9RbzA1LS0wMzR1bGtzb2k5UENfZV9FdzF6TXFKQTR0NV9kMzMzUW5YSHlIcDh5elFCY09QR0J6N3NIT1lxMmotbjVlQy9wdWI=';
+        // Hojas: QR + meses. En tu Google Sheet, abre cada pestaña y copia el número gid= de la URL.
+        var _sheets = [
+            { name: 'QR', gid: '375135436' },
+            { name: 'Data Sep', gid: '375135436' },
+            { name: 'Data Oct', gid: '375135436' },
+            { name: 'Data Dic', gid: '375135436' },
+            { name: 'Data Enero', gid: '375135436' },
+            { name: 'Data Febrero', gid: '375135436' }
+        ];
+        let sheetsData = {};
         let dbData = [];
         let headers = [];
         let excelDataExport = [];
-        let medicamentosList = []; // Lista única de nombres de medicamentos para la pestaña
+        let medicamentosList = [];
         
         // Diccionario Inteligente
         const abbrMap = {
@@ -390,10 +404,10 @@
         }
 
         function switchMainTab(tab) {
-            const busqueda = document.getElementById('content-busqueda');
-            const medicamentos = document.getElementById('content-medicamentos');
-            const btnBusqueda = document.getElementById('nav-tab-busqueda');
-            const btnMedicamentos = document.getElementById('nav-tab-medicamentos');
+            var busqueda = document.getElementById('content-busqueda');
+            var medicamentos = document.getElementById('content-medicamentos');
+            var btnBusqueda = document.getElementById('nav-tab-busqueda');
+            var btnMedicamentos = document.getElementById('nav-tab-medicamentos');
             if (tab === 'busqueda') {
                 busqueda.classList.remove('hidden');
                 medicamentos.classList.add('hidden');
@@ -408,20 +422,24 @@
                 btnMedicamentos.classList.remove('text-gray-500');
                 btnBusqueda.classList.remove('active', 'text-brand-600');
                 btnBusqueda.classList.add('text-gray-500');
+                renderMedicamentosList(medicamentosList);
             }
             lucide.createIcons();
         }
 
         function buildMedicamentosList() {
-            const obsKey = headers.find(h => /observacion/i.test(h));
-            const set = new Set();
-            const splitRegex = /[,;]|\s+y\s+|\/\s*|\s+\/\s+/;
-            const stopWords = /^(solo|en|ventanilla|fisica|no|hay|disponible|dispensar|los|por|el|la|de|para|que|se|le|los|las|un|una|paso|pasar|consultar|receta|recetas)$/i;
-            if (obsKey && dbData.length) {
-                dbData.forEach(row => {
-                    const text = String(row[obsKey] || '');
-                    text.split(splitRegex).forEach(part => {
-                        let name = part
+            var set = new Set();
+            var splitRegex = /[,;]|\s+y\s+|\/\s*|\s+\/\s+/;
+            var stopWords = /^(solo|en|ventanilla|fisica|no|hay|disponible|dispensar|los|por|el|la|de|para|que|se|le|los|las|un|una|paso|pasar|consultar|receta|recetas)$/i;
+            Object.keys(sheetsData || {}).forEach(function(sheetName) {
+                var sh = sheetsData[sheetName];
+                if (!sh || !sh.headers || !sh.data) return;
+                var obsKey = sh.headers.find(function(h) { return h && /observacion/i.test(String(h).replace(/^\uFEFF/, '')); });
+                if (!obsKey) return;
+                sh.data.forEach(function(row) {
+                    var text = String(row[obsKey] || '');
+                    text.split(splitRegex).forEach(function(part) {
+                        var name = part
                             .replace(/\s*(?:solo en|ventanilla|fisica|no hay|no disponible|solo esta|solo se).*$/i, '')
                             .replace(/\s*\(\s*refrigerado\s*\)\s*$/i, '')
                             .trim();
@@ -430,8 +448,8 @@
                         }
                     });
                 });
-            }
-            medicamentosList = Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
+            });
+            medicamentosList = Array.from(set).sort(function(a, b) { return a.localeCompare(b, 'es'); });
             renderMedicamentosList(medicamentosList);
         }
 
@@ -457,25 +475,77 @@
             countEl.textContent = list.length + ' medicamento(s)';
         }
 
+        function getSheetUrl(gid) {
+            var base = _b(_3);
+            if (!base) return '';
+            return base + (gid ? '?gid=' + gid + '&single=true&output=csv' : '?output=csv');
+        }
+
+        function fetchCsv(url, done) {
+            var fromFile = (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:');
+            var encoded = encodeURIComponent(url);
+            var proxies = [
+                'https://corsproxy.io/?url=' + encoded,
+                'https://api.allorigins.win/raw?url=' + encoded
+            ];
+            var target = fromFile ? proxies[0] : url;
+            function tryNext(idx) {
+                var nextUrl = idx < 0 ? target : (proxies[idx] || null);
+                if (!nextUrl) { done(new Error('No se pudo cargar')); return; }
+                fetch(nextUrl, { mode: 'cors' })
+                    .then(function(r) { return r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)); })
+                    .then(function(text) {
+                        if (text && text.length > 0 && !/^\s*<html/i.test(text)) { done(null, text); return; }
+                        tryNext(idx + 1);
+                    })
+                    .catch(function() {
+                        if (fromFile && idx < 0) tryNext(0);
+                        else if (idx + 1 < proxies.length) tryNext(idx + 1);
+                        else done(new Error('No se pudo cargar'));
+                    });
+            }
+            if (fromFile) tryNext(0);
+            else tryNext(-1);
+        }
+
         function loadDatabase() {
-            Papa.parse(_b(_3), {
-                download: true,
-                header: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    dbData = results.data;
-                    headers = results.meta.fields;
-                    if (dbData.length > 0) {
-                        setOnlineStatus(true, dbData.length);
+            var total = 0;
+            var loaded = 0;
+            var fromFile = typeof window !== 'undefined' && window.location && window.location.protocol === 'file:';
+            var sheetsToLoad = fromFile ? _sheets.slice(0, 1) : _sheets;
+            var totalSheets = sheetsToLoad.length;
+            function onSheetDone(name, results) {
+                if (results && results.data && results.data.length > 0) {
+                    sheetsData[name] = { headers: results.meta.fields || [], data: results.data };
+                    total += results.data.length;
+                }
+                loaded++;
+                if (loaded === totalSheets) {
+                    var first = _sheets[0];
+                    if (sheetsData[first.name]) {
+                        dbData = sheetsData[first.name].data;
+                        headers = sheetsData[first.name].headers;
+                        setOnlineStatus(true, total);
                         populateSelect();
                         buildMedicamentosList();
                     } else {
-                        showToast('error', 'Base de datos vacía');
+                        setOnlineStatus(false);
+                        showToast('error', 'No se pudo cargar ninguna hoja. Revisa que el enlace est\u00e9 publicado.');
+                        if (fromFile) {
+                            var alertEl = document.getElementById('file-origin-alert');
+                            if (alertEl) alertEl.classList.remove('hidden');
+                        }
                     }
-                },
-                error: function(err) {
-                    setOnlineStatus(false);
                 }
+            }
+            sheetsToLoad.forEach(function(sheet) {
+                var url = getSheetUrl(sheet.gid);
+                if (!url) { onSheetDone(sheet.name, null); return; }
+                fetchCsv(url, function(err, csvText) {
+                    if (err || !csvText) { onSheetDone(sheet.name, null); return; }
+                    var res = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+                    onSheetDone(sheet.name, res);
+                });
             });
         }
 
@@ -573,60 +643,62 @@
             btn.disabled = true;
             lucide.createIcons();
 
-            setTimeout(() => {
+            setTimeout(function() {
                 try {
-                    const rawList = inputVal.split(/[\n,;\t]+/).map(s => s.trim()).filter(s => s !== "");
-                    let foundList = [];
-                    let missingList = [];
-                    let freqMap = new Map();
-                    let seenSet = new Set();
-                    excelDataExport = []; // Resetear export
+                    var rawList = inputVal.split(/[\n,;\t]+/).map(function(s) { return s.trim(); }).filter(function(s) { return s !== ''; });
+                    var foundByTerm = {};
+                    var missingList = [];
+                    var freqMap = new Map();
+                    excelDataExport = [];
 
-                    if (isUnique) {
-                        // MODO EXACTO
-                        const searchSet = new Set(rawList);
-                        for(let row of dbData) {
-                            const val = String(row[col] || "").trim();
-                            if(searchSet.has(val)) {
-                                freqMap.set(val, (freqMap.get(val)||0)+1);
-                                if(!seenSet.has(val)) {
-                                    seenSet.add(val);
-                                    foundList.push({ term: val, row: row });
+                    var searchSet = isUnique ? new Set(rawList) : null;
+                    var searchTerms = isUnique ? null : rawList.map(function(t) {
+                        var norm = cleanString(t);
+                        return { original: t, norm: abbrMap[norm] || norm };
+                    });
+
+                    Object.keys(sheetsData || {}).forEach(function(sheetName) {
+                        var sh = sheetsData[sheetName];
+                        if (!sh || !sh.data) return;
+                        var sheetHeaders = sh.headers || [];
+                        sh.data.forEach(function(row) {
+                            var val = String(row[col] || '').trim();
+                            var valNorm = cleanString(val);
+                            var matchedTerm = null;
+                            if (isUnique) {
+                                if (searchSet.has(val)) matchedTerm = val;
+                            } else {
+                                for (var i = 0; i < searchTerms.length; i++) {
+                                    if (valNorm.indexOf(searchTerms[i].norm) !== -1) {
+                                        matchedTerm = searchTerms[i].original;
+                                        break;
+                                    }
                                 }
                             }
-                        }
-                        // Missing
-                        const foundSet = new Set(foundList.map(i => i.term));
-                        missingList = rawList.filter(x => !foundSet.has(x));
-                    } else {
-                        // MODO INTELIGENTE
-                        const searchTerms = rawList.map(t => {
-                            const norm = cleanString(t);
-                            return { original: t, norm: abbrMap[norm] || norm };
+                            if (matchedTerm) {
+                                freqMap.set(matchedTerm, (freqMap.get(matchedTerm) || 0) + 1);
+                                if (!foundByTerm[matchedTerm]) foundByTerm[matchedTerm] = [];
+                                foundByTerm[matchedTerm].push({ sheetName: sheetName, row: row, headers: sheetHeaders });
+                            }
                         });
+                    });
 
-                        for(let row of dbData) {
-                            const valRaw = String(row[col] || "");
-                            const valNorm = cleanString(valRaw);
-                            
-                            for(let term of searchTerms) {
-                                if(valNorm.includes(term.norm)) {
-                                    freqMap.set(term.original, (freqMap.get(term.original)||0)+1);
-                                    foundList.push({ term: term.original, row: row });
-                                    break; 
-                                }
-                            }
-                        }
-                        // Missing aproximado
-                        const foundKeys = new Set(freqMap.keys());
-                        missingList = rawList.filter(x => !foundKeys.has(x));
-                    }
+                    var foundList = Object.keys(foundByTerm).map(function(term) {
+                        return { term: term, occurrences: foundByTerm[term] };
+                    });
+                    var foundSet = new Set(Object.keys(foundByTerm));
+                    missingList = rawList.filter(function(x) { return !foundSet.has(x); });
 
-                    // Preparar Datos para UI y Exportar
-                    excelDataExport = foundList.map(f => f.row);
+                    foundList.forEach(function(f) {
+                        f.occurrences.forEach(function(occ) {
+                            var r = {};
+                            try { Object.keys(occ.row).forEach(function(k) { r[k] = occ.row[k]; }); } catch(e) {}
+                            r['Hoja'] = occ.sheetName;
+                            excelDataExport.push(r);
+                        });
+                    });
                     lastMissingDNIs = missingList;
 
-                    // Renderizar
                     renderStats(rawList.length, foundList.length, missingList.length);
                     renderCards(foundList);
                     renderMissing(missingList);
@@ -658,18 +730,18 @@
 
         // --- NUEVA FUNCIÓN: DESCARGA MANUAL ---
         function downloadExcel() {
-            if(!excelDataExport || excelDataExport.length === 0) {
+            if (!excelDataExport || excelDataExport.length === 0) {
                 showToast('warning', 'No hay datos para descargar');
                 return;
             }
             try {
-                const ws = XLSX.utils.json_to_sheet(excelDataExport, { header: headers });
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Resultados");
-                const fileName = `Busqueda_${new Date().toISOString().slice(0,10)}.xlsx`;
-                XLSX.writeFile(wb, fileName);
+                var exportHeaders = Object.keys(excelDataExport[0]);
+                var ws = XLSX.utils.json_to_sheet(excelDataExport, { header: exportHeaders });
+                var wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Resultados');
+                XLSX.writeFile(wb, 'Busqueda_' + new Date().toISOString().slice(0, 10) + '.xlsx');
                 showToast('success', 'Excel descargado correctamente');
-            } catch(e) {
+            } catch (e) {
                 console.error(e);
                 showToast('error', 'Error al generar el Excel');
             }
@@ -683,36 +755,25 @@
         }
 
         function renderCards(list) {
-            const container = document.getElementById('found-cards-container');
-            const section = document.getElementById('found-section');
+            var container = document.getElementById('found-cards-container');
+            var section = document.getElementById('found-section');
             container.innerHTML = '';
-            
-            if(list.length === 0) {
+            if (list.length === 0) {
                 section.classList.add('hidden');
                 return;
             }
             section.classList.remove('hidden');
-
-            // Detectar columnas nombre
-            const nameKey = headers.find(h => h.match(/nombre|name|paciente/i));
-            const idKey = headers.find(h => h.match(/dni|id|cedula/i));
-            
-            // Render limit 100
-            list.slice(0, 100).forEach(item => {
-                const title = item.term;
-                // Si encontramos columna nombre, úsala, sino usa algo genérico
-                const subtitle = nameKey ? item.row[nameKey] : (idKey && item.row[idKey] !== title ? item.row[idKey] : 'Ver detalles');
-
-                const div = document.createElement('div');
-                div.className = "bg-white border border-gray-200 p-3 rounded-lg hover:shadow-md cursor-pointer transition-all flex justify-between items-center";
-                div.onclick = () => openModal(item.row);
-                div.innerHTML = `
-                    <div class="overflow-hidden">
-                        <p class="text-xs font-bold text-gray-800 truncate">${title}</p>
-                        <p class="text-[10px] text-gray-500 truncate">${subtitle}</p>
-                    </div>
-                    <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
-                `;
+            var nameKey = headers.find(function(h) { return /nombre|name|paciente/i.test(h); });
+            list.slice(0, 100).forEach(function(item) {
+                var title = item.term;
+                var firstRow = item.occurrences[0].row;
+                var subtitle = nameKey ? (firstRow[nameKey] || '') : '';
+                var sheetsLabel = item.occurrences.map(function(o) { return o.sheetName; }).join(', ');
+                if (!subtitle) subtitle = 'En: ' + sheetsLabel; else subtitle = subtitle + ' · ' + sheetsLabel;
+                var div = document.createElement('div');
+                div.className = 'bg-white border border-gray-200 p-3 rounded-lg hover:shadow-md cursor-pointer transition-all flex justify-between items-center';
+                div.onclick = function() { openModalPaciente(item); };
+                div.innerHTML = '<div class="overflow-hidden"><p class="text-xs font-bold text-gray-800 truncate">' + title + '</p><p class="text-[10px] text-gray-500 truncate">' + subtitle + '</p></div><i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>';
                 container.appendChild(div);
             });
             lucide.createIcons();
@@ -750,25 +811,50 @@
             document.getElementById('stat-max-count').innerText = maxVal + " filas";
         }
 
-        // --- UTILS ---
-        function openModal(row) {
-            const content = document.getElementById('modal-content');
-            content.innerHTML = '';
-            Object.entries(row).forEach(([k, v]) => {
-                if(v && v.trim()) {
-                    content.innerHTML += `
-                        <div class="bg-gray-50 p-2 rounded border border-gray-100 mb-2">
-                            <p class="text-[10px] font-bold text-brand-600 uppercase">${k}</p>
-                            <p class="text-sm text-gray-800 break-words">${v}</p>
-                        </div>
-                    `;
-                }
-            });
+        // --- MODAL PACIENTE (tarjetas por hoja → clic muestra fila con encabezados) ---
+        var _modalPaciente = null;
+
+        function openModalPaciente(item) {
+            _modalPaciente = item;
+            document.getElementById('modal-title').textContent = item.term;
+            document.getElementById('modal-back-btn').classList.add('hidden');
+            modalShowSheets();
             document.getElementById('patient-modal').classList.remove('hidden');
+        }
+
+        function modalShowSheets() {
+            if (!_modalPaciente) return;
+            var content = document.getElementById('modal-content');
+            content.innerHTML = '<p class="text-sm text-gray-600 mb-3">Aparece en las siguientes hojas. Clic en una para ver la fila completa:</p><div id="modal-sheets-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>';
+            var grid = document.getElementById('modal-sheets-grid');
+            _modalPaciente.occurrences.forEach(function(occ) {
+                var card = document.createElement('div');
+                card.className = 'bg-brand-50 border border-brand-200 p-4 rounded-xl cursor-pointer hover:shadow-md hover:border-brand-400 transition-all text-center';
+                card.innerHTML = '<span class="font-semibold text-brand-700">' + occ.sheetName + '</span>';
+                card.onclick = function() { modalShowRow(occ); };
+                grid.appendChild(card);
+            });
+            document.getElementById('modal-back-btn').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        function modalShowRow(occ) {
+            var content = document.getElementById('modal-content');
+            content.innerHTML = '';
+            var headers = occ.headers || [];
+            var row = occ.row || {};
+            headers.forEach(function(h) {
+                var v = row[h];
+                if (v === undefined || v === null) v = '';
+                var val = String(v).trim();
+                content.innerHTML += '<div class="bg-gray-50 p-3 rounded-lg border border-gray-100 mb-2"><p class="text-[10px] font-bold text-brand-600 uppercase mb-1">' + h + '</p><p class="text-sm text-gray-800 break-words">' + (val || '—') + '</p></div>';
+            });
+            document.getElementById('modal-back-btn').classList.remove('hidden');
         }
 
         function closeModal() {
             document.getElementById('patient-modal').classList.add('hidden');
+            _modalPaciente = null;
         }
 
         let lastMissingDNIs = [];
