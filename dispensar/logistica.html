@@ -299,8 +299,8 @@
                 { id: 'logistica', label: 'Lista de espera', icon: Icons.Truck, color: 'bg-cyan-600', desc: 'Despacho, Operaciones, Calidad, Logística y Bitácora', allow: () => true },
                 { id: 'despachoLogisticaVentanilla', label: 'Despacho Logística Ventanilla', icon: Icons.Box, color: 'bg-indigo-500', desc: 'Kits listos para retiro en ventanilla', allow: () => true },
                 { id: 'despachoLogisticaRuta', label: 'Despacho Logística Ruta', icon: Icons.Truck, color: 'bg-emerald-500', desc: 'Kits listos para entrega en ruta', allow: () => true },
-                { id: 'reports', label: 'Reportes de mi Departamento', icon: Icons.List, color: 'bg-amber-500', desc: 'Generar reportes de tu departamento', allow: () => !!canViewReports && role === 'supervisor' },
-                { id: 'reports', label: 'Reportes y Carpetas', icon: Icons.List, color: 'bg-amber-500', desc: 'Ver kits por fecha', allow: () => !!canViewReports && (role === 'admin' || role === 'superadmin') },
+                { id: 'reports', label: 'Bitácora entregados', icon: Icons.List, color: 'bg-amber-500', desc: 'Entregados por día: ventanilla y ruta', allow: () => !!canViewReports && role === 'supervisor' },
+                { id: 'reports', label: 'Bitácora entregados', icon: Icons.List, color: 'bg-amber-500', desc: 'Entregados por día: ventanilla y ruta', allow: () => !!canViewReports && (role === 'admin' || role === 'superadmin') },
                 { id: 'config', label: 'Configuración', icon: Icons.Settings, color: 'bg-slate-500', desc: 'Catálogos del Sistema', allow: () => !!canViewConfig, externalLink: 'index.html' },
                 { id: 'users', label: 'Gestión de Usuarios', icon: Icons.UserCog, color: 'bg-indigo-500', desc: 'Control de accesos', allow: () => !!canViewConfig, externalLink: 'index.html' },
             ];
@@ -419,6 +419,130 @@
                             </button>
                         ))}
                     </div>
+                </div>
+            );
+        };
+
+        const ReportesBitacoraBlock = ({ kits, patients }) => {
+            const entregadosPorDia = useMemo(() => {
+                const conFecha = (kits || []).filter(k => (k.fechaEntregaKit || '').toString().trim());
+                const porFecha = {};
+                conFecha.forEach(k => {
+                    const fecha = String(k.fechaEntregaKit).trim().slice(0, 10);
+                    if (!fecha) return;
+                    if (!porFecha[fecha]) porFecha[fecha] = { fecha, ventanilla: [], ruta: [] };
+                    const dm = (k.deliveryMode || '').toString().toLowerCase();
+                    if (dm === 'ventanilla') porFecha[fecha].ventanilla.push(k);
+                    else porFecha[fecha].ruta.push(k);
+                });
+                return Object.values(porFecha).sort((a, b) => b.fecha.localeCompare(a.fecha));
+            }, [kits]);
+            const [diaAbierto, setDiaAbierto] = useState(null);
+            const [tabEntregados, setTabEntregados] = useState('ventanilla');
+            const formatearDia = (f) => {
+                if (!f) return '—';
+                try { return new Date(f + 'T12:00:00').toLocaleDateString('es-HN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); } catch { return f; }
+            };
+            const datosDia = diaAbierto ? entregadosPorDia.find(d => d.fecha === diaAbierto) : null;
+            const totalVentanilla = datosDia ? datosDia.ventanilla.length : 0;
+            const totalRuta = datosDia ? datosDia.ruta.length : 0;
+            return (
+                <div className="w-full min-w-0 max-w-5xl mx-auto space-y-6 animate-in">
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-800 brand-font">Bitácora — Entregados por día</h2>
+                        <p className="text-sm text-slate-500 mt-1">Carpeta por día. Al hacer clic se abre el detalle de entregados en ventanilla y en ruta.</p>
+                    </div>
+                    {entregadosPorDia.length === 0 ? (
+                        <div className="p-12 text-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50">
+                            <Icons.Calendar size={48} className="mx-auto mb-3 text-slate-300"/>
+                            <p className="font-medium text-slate-600">No hay entregas registradas</p>
+                            <p className="text-xs text-slate-400 mt-2">Los kits con fecha de entrega aparecerán aquí por día.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {entregadosPorDia.map(({ fecha, ventanilla, ruta }) => {
+                                const total = ventanilla.length + ruta.length;
+                                return (
+                                    <button
+                                        key={fecha}
+                                        type="button"
+                                        onClick={() => { setDiaAbierto(fecha); setTabEntregados('ventanilla'); }}
+                                        className="p-5 rounded-2xl border-2 border-amber-200 bg-white hover:border-amber-400 hover:bg-amber-50/50 text-left transition-all btn-hover-effect flex items-center gap-4"
+                                    >
+                                        <div className="p-3 rounded-xl bg-amber-100 text-amber-700">
+                                            <Icons.Calendar size={28}/>
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="font-bold text-slate-800 capitalize">{formatearDia(fecha)}</div>
+                                            <div className="text-xs text-slate-500 mt-1">
+                                                {ventanilla.length} ventanilla · {ruta.length} ruta · {total} total
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                    {datosDia && (
+                        <Modal isOpen={!!diaAbierto} onClose={() => setDiaAbierto(null)} title={`Entregados — ${formatearDia(diaAbierto)}`} maxWidth="max-w-2xl">
+                            <div className="space-y-4">
+                                <div className="flex gap-2 border-b border-slate-200 pb-3">
+                                    <button
+                                        onClick={() => setTabEntregados('ventanilla')}
+                                        className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${tabEntregados === 'ventanilla' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                                    >
+                                        Ventanilla ({totalVentanilla})
+                                    </button>
+                                    <button
+                                        onClick={() => setTabEntregados('ruta')}
+                                        className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${tabEntregados === 'ruta' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                                    >
+                                        Ruta ({totalRuta})
+                                    </button>
+                                </div>
+                                <div className="max-h-[50vh] overflow-y-auto divide-y divide-slate-100">
+                                    {tabEntregados === 'ventanilla' ? (
+                                        totalVentanilla === 0 ? (
+                                            <div className="py-8 text-center text-slate-500 text-sm">No hay entregas en ventanilla este día.</div>
+                                        ) : (
+                                            datosDia.ventanilla.map(k => {
+                                                const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                                                return (
+                                                    <div key={k.id} className="py-4 flex flex-wrap items-center justify-between gap-2">
+                                                        <div>
+                                                            <div className="font-bold text-slate-800">{k.nombre || pt?.nombre || '—'}</div>
+                                                            <div className="text-sm text-slate-500">DNI: {k.dni || pt?.dni || '—'}</div>
+                                                        </div>
+                                                        <span className="px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-800 text-xs font-bold">Ventanilla</span>
+                                                    </div>
+                                                );
+                                            })
+                                        )
+                                    ) : (
+                                        totalRuta === 0 ? (
+                                            <div className="py-8 text-center text-slate-500 text-sm">No hay entregas en ruta este día.</div>
+                                        ) : (
+                                            datosDia.ruta.map(k => {
+                                                const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                                                return (
+                                                    <div key={k.id} className="py-4 flex flex-wrap items-center justify-between gap-2">
+                                                        <div>
+                                                            <div className="font-bold text-slate-800">{k.nombre || pt?.nombre || '—'}</div>
+                                                            <div className="text-sm text-slate-500">DNI: {k.dni || pt?.dni || '—'}</div>
+                                                        </div>
+                                                        <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold">Ruta</span>
+                                                    </div>
+                                                );
+                                            })
+                                        )
+                                    )}
+                                </div>
+                                <div className="pt-2 flex justify-end">
+                                    <button onClick={() => setDiaAbierto(null)} className="px-6 py-2.5 rounded-xl bg-slate-600 text-white font-bold text-sm hover:bg-slate-700">Cerrar</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
                 </div>
             );
         };
@@ -1883,7 +2007,8 @@
                             {['logistica','despachoLogisticaVentanilla','despachoLogisticaRuta'].includes(view) && (
                                 <LogisticaListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} onRefreshKits={refetchKits} currentUser={currentUserData} initialView={view} users={users} role={role} db={db} firebaseInitialized={firebaseInitialized} />
                             )}
-                            {['reports','config','users'].includes(view) && <RedirectToIndex />}
+                            {view === 'reports' && <ReportesBitacoraBlock kits={kits} patients={patients} />}
+                            {['config','users'].includes(view) && <RedirectToIndex />}
                         </div>
                     </main>
                 </div>
