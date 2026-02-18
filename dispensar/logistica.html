@@ -453,18 +453,24 @@
         const BUSQUEDA_QR_GID = '375135436';
         const abbrMap = { 'sps': 'san pedro sula', 'sp': 'san pedro sula', 'tgu': 'tegucigalpa', 'teg': 'tegucigalpa', 'tegus': 'tegucigalpa', 'ceiba': 'la ceiba', 'progreso': 'el progreso', 'src': 'santa rosa de copan' };
 
-        const BusquedaRegistroBlock = () => {
-            const [qrData, setQrData] = useState([]);
-            const [qrHeaders, setQrHeaders] = useState([]);
+        const BusquedaRegistroBlock = ({ qrData: propsQrData, qrHeaders: propsQrHeaders, loading: propsLoading, error: propsError }) => {
+            const fromParent = propsLoading !== undefined;
+            const [internalQrData, setInternalQrData] = useState([]);
+            const [internalQrHeaders, setInternalQrHeaders] = useState([]);
+            const [internalLoading, setInternalLoading] = useState(true);
+            const [internalError, setInternalError] = useState(null);
             const [selectedCol, setSelectedCol] = useState('');
             const [uniqueMode, setUniqueMode] = useState(true);
             const [inputVal, setInputVal] = useState('');
             const [foundList, setFoundList] = useState([]);
             const [missingList, setMissingList] = useState([]);
-            const [loading, setLoading] = useState(true);
-            const [error, setError] = useState(null);
             const [processing, setProcessing] = useState(false);
             const [modalItem, setModalItem] = useState(null);
+
+            const qrData = fromParent ? (Array.isArray(propsQrData) ? propsQrData : []) : internalQrData;
+            const qrHeaders = fromParent ? (Array.isArray(propsQrHeaders) ? propsQrHeaders : []) : internalQrHeaders;
+            const loading = fromParent ? !!propsLoading : internalLoading;
+            const error = fromParent ? (propsError || null) : internalError;
 
             const getSheetUrl = useCallback(() => {
                 try {
@@ -474,9 +480,10 @@
             }, []);
 
             useEffect(() => {
+                if (fromParent) return;
                 let cancelled = false;
                 const url = getSheetUrl();
-                if (!url) { setError('URL de hoja QR no configurada'); setLoading(false); return; }
+                if (!url) { setInternalError('URL de hoja QR no configurada'); setInternalLoading(false); return; }
                 const fromFile = typeof window !== 'undefined' && window.location && window.location.protocol === 'file:';
                 const encoded = encodeURIComponent(url);
                 const proxies = ['https://corsproxy.io/?url=' + encoded, 'https://api.allorigins.win/raw?url=' + encoded];
@@ -484,7 +491,7 @@
                 function tryNext(idx) {
                     if (cancelled) return;
                     const nextUrl = idx < 0 ? target : (proxies[idx] || null);
-                    if (!nextUrl) { setError('No se pudo cargar la hoja QR'); setLoading(false); return; }
+                    if (!nextUrl) { setInternalError('No se pudo cargar la hoja QR'); setInternalLoading(false); return; }
                     fetch(nextUrl, { mode: 'cors' })
                         .then(r => r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)))
                         .then(text => {
@@ -498,24 +505,31 @@
                             } catch (_) {}
                             const data = Array.isArray(res.data) ? res.data : [];
                             const h = (res.meta && res.meta.fields && Array.isArray(res.meta.fields)) ? res.meta.fields.slice(0, 8) : [];
-                            setQrData(data);
-                            setQrHeaders(h);
+                            setInternalQrData(data);
+                            setInternalQrHeaders(h);
                             const defaultCol = (h.find(x => x && /dni|identidad|cedula|id/i.test(String(x))) || h[0]) || '';
                             setSelectedCol(prev => (prev && h.indexOf(prev) !== -1) ? prev : defaultCol);
-                            setError(null);
-                            setLoading(false);
+                            setInternalError(null);
+                            setInternalLoading(false);
                         })
                         .catch(() => {
                             if (cancelled) return;
                             if (fromFile && idx < 0) tryNext(0);
                             else if (idx + 1 < proxies.length) tryNext(idx + 1);
-                            else { setError('No se pudo cargar la hoja QR'); setLoading(false); }
+                            else { setInternalError('No se pudo cargar la hoja QR'); setInternalLoading(false); }
                         });
                 }
                 tryNext(-1);
                 return () => { cancelled = true; };
-            }, [getSheetUrl]);
+            }, [fromParent, getSheetUrl]);
 
+            useEffect(() => {
+                const h = Array.isArray(qrHeaders) ? qrHeaders : [];
+                if (h.length > 0) {
+                    const defaultCol = (h.find(x => x && /dni|identidad|cedula|id/i.test(String(x))) || h[0]) || '';
+                    setSelectedCol(prev => (!prev || h.indexOf(prev) === -1) ? defaultCol : prev);
+                }
+            }, [qrHeaders]);
             useEffect(() => {
                 const h = qrHeaders || [];
                 if (h.length > 0 && selectedCol !== '' && h.indexOf(selectedCol) === -1) setSelectedCol(h[0]);
@@ -2293,6 +2307,50 @@
             const [notifications, setNotifications] = useState([]);
             const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
             const [floatingNotifications, setFloatingNotifications] = useState([]);
+            const [busquedaQrData, setBusquedaQrData] = useState([]);
+            const [busquedaQrHeaders, setBusquedaQrHeaders] = useState([]);
+            const [busquedaQrLoading, setBusquedaQrLoading] = useState(true);
+            const [busquedaQrError, setBusquedaQrError] = useState(null);
+
+            useEffect(() => {
+                let cancelled = false;
+                const getUrl = () => {
+                    try { const base = typeof atob !== 'undefined' ? atob(BUSQUEDA_QR_B64) : ''; return base ? base + '?gid=' + BUSQUEDA_QR_GID + '&single=true&output=csv' : ''; } catch (e) { return ''; }
+                };
+                const url = getUrl();
+                if (!url) { setBusquedaQrError('URL de hoja QR no configurada'); setBusquedaQrLoading(false); return; }
+                const fromFile = typeof window !== 'undefined' && window.location && window.location.protocol === 'file:';
+                const encoded = encodeURIComponent(url);
+                const proxies = ['https://corsproxy.io/?url=' + encoded, 'https://api.allorigins.win/raw?url=' + encoded];
+                const target = fromFile ? proxies[0] : url;
+                function tryNext(idx) {
+                    if (cancelled) return;
+                    const nextUrl = idx < 0 ? target : (proxies[idx] || null);
+                    if (!nextUrl) { setBusquedaQrError('No se pudo cargar la hoja QR'); setBusquedaQrLoading(false); return; }
+                    fetch(nextUrl, { mode: 'cors' })
+                        .then(r => r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)))
+                        .then(text => {
+                            if (cancelled) return;
+                            if (!text || text.length === 0 || /^\s*<html/i.test(text)) { tryNext(idx + 1); return; }
+                            let res = { data: [], meta: { fields: [] } };
+                            try { if (typeof Papa !== 'undefined' && Papa.parse) res = Papa.parse(text, { header: true, skipEmptyLines: true }); } catch (_) {}
+                            const data = Array.isArray(res.data) ? res.data : [];
+                            const h = (res.meta && res.meta.fields && Array.isArray(res.meta.fields)) ? res.meta.fields.slice(0, 8) : [];
+                            setBusquedaQrData(data);
+                            setBusquedaQrHeaders(h);
+                            setBusquedaQrError(null);
+                            setBusquedaQrLoading(false);
+                        })
+                        .catch(() => {
+                            if (cancelled) return;
+                            if (fromFile && idx < 0) tryNext(0);
+                            else if (idx + 1 < proxies.length) tryNext(idx + 1);
+                            else { setBusquedaQrError('No se pudo cargar la hoja QR'); setBusquedaQrLoading(false); }
+                        });
+                }
+                tryNext(-1);
+                return () => { cancelled = true; };
+            }, []);
 
             useEffect(() => {
                 const handler = (e) => {
@@ -2439,7 +2497,7 @@
                                 <LogisticaListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} onRefreshKits={refetchKits} currentUser={currentUserData} initialView={view} users={users} role={role} db={db} firebaseInitialized={firebaseInitialized} />
                             )}
                             {view === 'reports' && <ReportesBitacoraBlock kits={kits} patients={patients} />}
-                            {view === 'busquedaRegistro' && <BusquedaErrorBoundary><BusquedaRegistroBlock /></BusquedaErrorBoundary>}
+                            {view === 'busquedaRegistro' && <BusquedaErrorBoundary><BusquedaRegistroBlock qrData={busquedaQrData} qrHeaders={busquedaQrHeaders} loading={busquedaQrLoading} error={busquedaQrError} /></BusquedaErrorBoundary>}
                             {['config','users'].includes(view) && <RedirectToIndex />}
                         </div>
                     </main>
