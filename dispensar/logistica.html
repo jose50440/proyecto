@@ -447,11 +447,60 @@
             const datosDia = diaAbierto ? entregadosPorDia.find(d => d.fecha === diaAbierto) : null;
             const totalVentanilla = datosDia ? datosDia.ventanilla.length : 0;
             const totalRuta = datosDia ? datosDia.ruta.length : 0;
+            const todosEntregados = useMemo(() => (kits || []).filter(k => (k.fechaEntregaKit || '').toString().trim()), [kits]);
+            const entregadosSoloRuta = useMemo(() => todosEntregados.filter(k => (k.deliveryMode || '').toString().toLowerCase() !== 'ventanilla'), [todosEntregados]);
+            const entregadosSoloVentanilla = useMemo(() => todosEntregados.filter(k => (k.deliveryMode || '').toString().toLowerCase() === 'ventanilla'), [todosEntregados]);
+            const descargarReporteExcel = async (tipo, listaKits) => {
+                try {
+                    const XLSX = await window.ensureXLSX();
+                    const medsVan = (m) => (m || []).filter(x => x.dispensar !== false).map(x => (x.nombre || '—') + ' × ' + (x.cantidad || 1)).join('; ');
+                    const medsNoVan = (m) => (m || []).filter(x => x.dispensar === false).map(x => (x.nombre || '—') + ' × ' + (x.cantidad || 1)).join('; ');
+                    const rows = (listaKits || []).map(k => {
+                        const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                        const meds = k.medicamentos || [];
+                        const dispensados = meds.filter(x => x.dispensar !== false).length;
+                        const total = meds.length;
+                        return {
+                            DNI: k.dni || pt?.dni || '—',
+                            Nombre: k.nombre || pt?.nombre || '—',
+                            'Cantidad medicamentos': total ? `${dispensados}/${total}` : '0/0',
+                            'Medicamentos que van': medsVan(meds) || '—',
+                            'Medicamentos que no van': medsNoVan(meds) || '—',
+                            'Tipo envío': (k.deliveryMode || '').toLowerCase() === 'ruta' ? 'Ruta' : 'Ventanilla',
+                            'Fecha entrega kit': k.fechaEntregaKit || '—',
+                            'Dirección entrega': (k.direccionEntrega || '').toString().trim() || '—',
+                            'Observaciones': (k.observacionesEntrega || k.observacionesLogistica || k.observations || '').toString().trim() || '—'
+                        };
+                    });
+                    const ws = XLSX.utils.json_to_sheet(rows);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, tipo === 'ruta' ? 'Ruta' : tipo === 'ventanilla' ? 'Ventanilla' : 'Total');
+                    const nombreArchivo = tipo === 'ruta' ? 'reporte_entregados_ruta' : tipo === 'ventanilla' ? 'reporte_entregados_ventanilla' : 'reporte_entregados_total';
+                    XLSX.writeFile(wb, `${nombreArchivo}_${new Date().toISOString().split('T')[0]}.xlsx`);
+                } catch (e) {
+                    alert('Error al descargar: ' + (e?.message || e));
+                }
+            };
             return (
                 <div className="w-full min-w-0 max-w-5xl mx-auto space-y-6 animate-in">
-                    <div>
-                        <h2 className="text-2xl font-bold text-slate-800 brand-font">Bitácora — Entregados por día</h2>
-                        <p className="text-sm text-slate-500 mt-1">Carpeta por día. Al hacer clic se abre el detalle de entregados en ventanilla y en ruta.</p>
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-800 brand-font">Bitácora — Entregados por día</h2>
+                            <p className="text-sm text-slate-500 mt-1">Carpeta por día. Al hacer clic se abre el detalle de entregados en ventanilla y en ruta.</p>
+                        </div>
+                        {todosEntregados.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                <button type="button" onClick={() => descargarReporteExcel('ruta', entregadosSoloRuta)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 transition-colors">
+                                    <Icons.Download size={18}/> Excel Ruta ({entregadosSoloRuta.length})
+                                </button>
+                                <button type="button" onClick={() => descargarReporteExcel('ventanilla', entregadosSoloVentanilla)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 transition-colors">
+                                    <Icons.Download size={18}/> Excel Ventanilla ({entregadosSoloVentanilla.length})
+                                </button>
+                                <button type="button" onClick={() => descargarReporteExcel('total', todosEntregados)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 text-white font-bold text-sm hover:bg-amber-700 transition-colors">
+                                    <Icons.Download size={18}/> Excel Total general ({todosEntregados.length})
+                                </button>
+                            </div>
+                        )}
                     </div>
                     {entregadosPorDia.length === 0 ? (
                         <div className="p-12 text-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50">
