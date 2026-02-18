@@ -447,10 +447,7 @@
             const datosDia = diaAbierto ? entregadosPorDia.find(d => d.fecha === diaAbierto) : null;
             const totalVentanilla = datosDia ? datosDia.ventanilla.length : 0;
             const totalRuta = datosDia ? datosDia.ruta.length : 0;
-            const todosEntregados = useMemo(() => (kits || []).filter(k => (k.fechaEntregaKit || '').toString().trim()), [kits]);
-            const entregadosSoloRuta = useMemo(() => todosEntregados.filter(k => (k.deliveryMode || '').toString().toLowerCase() !== 'ventanilla'), [todosEntregados]);
-            const entregadosSoloVentanilla = useMemo(() => todosEntregados.filter(k => (k.deliveryMode || '').toString().toLowerCase() === 'ventanilla'), [todosEntregados]);
-            const descargarReporteExcel = async (tipo, listaKits) => {
+            const descargarReporteExcelDia = async (tipo, listaKits, fechaDia) => {
                 try {
                     const XLSX = await window.ensureXLSX();
                     const medsVan = (m) => (m || []).filter(x => x.dispensar !== false).map(x => (x.nombre || '—') + ' × ' + (x.cantidad || 1)).join('; ');
@@ -475,32 +472,17 @@
                     const ws = XLSX.utils.json_to_sheet(rows);
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, ws, tipo === 'ruta' ? 'Ruta' : tipo === 'ventanilla' ? 'Ventanilla' : 'Total');
-                    const nombreArchivo = tipo === 'ruta' ? 'reporte_entregados_ruta' : tipo === 'ventanilla' ? 'reporte_entregados_ventanilla' : 'reporte_entregados_total';
-                    XLSX.writeFile(wb, `${nombreArchivo}_${new Date().toISOString().split('T')[0]}.xlsx`);
+                    const sufijo = tipo === 'ruta' ? 'ruta' : tipo === 'ventanilla' ? 'ventanilla' : 'total';
+                    XLSX.writeFile(wb, `reporte_entregados_${fechaDia || 'dia'}_${sufijo}.xlsx`);
                 } catch (e) {
                     alert('Error al descargar: ' + (e?.message || e));
                 }
             };
             return (
                 <div className="w-full min-w-0 max-w-5xl mx-auto space-y-6 animate-in">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                            <h2 className="text-2xl font-bold text-slate-800 brand-font">Bitácora — Entregados por día</h2>
-                            <p className="text-sm text-slate-500 mt-1">Carpeta por día. Al hacer clic se abre el detalle de entregados en ventanilla y en ruta.</p>
-                        </div>
-                        {todosEntregados.length > 0 && (
-                            <div className="flex flex-wrap gap-2">
-                                <button type="button" onClick={() => descargarReporteExcel('ruta', entregadosSoloRuta)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 transition-colors">
-                                    <Icons.Download size={18}/> Excel Ruta ({entregadosSoloRuta.length})
-                                </button>
-                                <button type="button" onClick={() => descargarReporteExcel('ventanilla', entregadosSoloVentanilla)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 transition-colors">
-                                    <Icons.Download size={18}/> Excel Ventanilla ({entregadosSoloVentanilla.length})
-                                </button>
-                                <button type="button" onClick={() => descargarReporteExcel('total', todosEntregados)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 text-white font-bold text-sm hover:bg-amber-700 transition-colors">
-                                    <Icons.Download size={18}/> Excel Total general ({todosEntregados.length})
-                                </button>
-                            </div>
-                        )}
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-800 brand-font">Bitácora — Entregados por día</h2>
+                        <p className="text-sm text-slate-500 mt-1">Carpeta por día. Al hacer clic se abre el detalle de entregados en ventanilla y en ruta.</p>
                     </div>
                     {entregadosPorDia.length === 0 ? (
                         <div className="p-12 text-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50">
@@ -548,6 +530,17 @@
                                         className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${tabEntregados === 'ruta' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                                     >
                                         Ruta ({totalRuta})
+                                    </button>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    <button type="button" onClick={() => descargarReporteExcelDia('ruta', datosDia.ruta, diaAbierto)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 transition-colors">
+                                        <Icons.Download size={16}/> Excel Ruta ({totalRuta})
+                                    </button>
+                                    <button type="button" onClick={() => descargarReporteExcelDia('ventanilla', datosDia.ventanilla, diaAbierto)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 transition-colors">
+                                        <Icons.Download size={16}/> Excel Ventanilla ({totalVentanilla})
+                                    </button>
+                                    <button type="button" onClick={() => descargarReporteExcelDia('total', [...datosDia.ventanilla, ...datosDia.ruta], diaAbierto)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 text-white font-bold text-sm hover:bg-amber-700 transition-colors">
+                                        <Icons.Download size={16}/> Excel Total ({totalVentanilla + totalRuta})
                                     </button>
                                 </div>
                                 <div className="max-h-[50vh] overflow-y-auto divide-y divide-slate-100">
