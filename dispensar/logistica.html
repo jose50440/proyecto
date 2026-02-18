@@ -25,6 +25,7 @@
     </script>
     <script src="supabase-db-adapter.js"></script>
     <script src="print-vinetas.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script>
     (function(){var _x;window.ensureXLSX=function(){return _x||(_x=new Promise(function(r,e){if(typeof XLSX!=='undefined'){r(window.XLSX);return;}var s=document.createElement('script');s.src='https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js';s.onload=function(){r(window.XLSX);};s.onerror=function(){e(new Error('No se pudo cargar la libreria XLSX'));};document.head.appendChild(s);}));};})();
     </script>
@@ -301,6 +302,7 @@
                 { id: 'despachoLogisticaRuta', label: 'Despacho Logística Ruta', icon: Icons.Truck, color: 'bg-emerald-500', desc: 'Kits listos para entrega en ruta', allow: () => true },
                 { id: 'reports', label: 'Bitácora entregados', icon: Icons.List, color: 'bg-amber-500', desc: 'Entregados por día: ventanilla y ruta', allow: () => !!canViewReports && role === 'supervisor' },
                 { id: 'reports', label: 'Bitácora entregados', icon: Icons.List, color: 'bg-amber-500', desc: 'Entregados por día: ventanilla y ruta', allow: () => !!canViewReports && (role === 'admin' || role === 'superadmin') },
+                { id: 'busquedaRegistro', label: 'Búsqueda registro', icon: Icons.Search, color: 'bg-teal-500', desc: 'Buscar en hoja QR por DNI o texto', allow: () => true },
                 { id: 'config', label: 'Configuración', icon: Icons.Settings, color: 'bg-slate-500', desc: 'Catálogos del Sistema', allow: () => !!canViewConfig, externalLink: 'index.html' },
                 { id: 'users', label: 'Gestión de Usuarios', icon: Icons.UserCog, color: 'bg-indigo-500', desc: 'Control de accesos', allow: () => !!canViewConfig, externalLink: 'index.html' },
             ];
@@ -423,6 +425,285 @@
             );
         };
 
+        // Hoja QR: URL base en base64 (mismo que Portal Clínico). GID de la hoja QR.
+        const BUSQUEDA_QR_B64 = 'aHR0cHM6Ly9kb2NzLmdvb2dsZS5jb20vc3ByZWFkc2hlZXRzL2QvZS8yUEFDWC0xdlJhMHZ5UEVvbl9RbzA1LS0wMzR1bGtzb2k5UENfZV9FdzF6TXFKQTR0NV9kMzMzUW5YSHlIcDh5elFCY09QR0J6N3NIT1lxMmotbjVlQy9wdWI=';
+        const BUSQUEDA_QR_GID = '375135436';
+        const abbrMap = { 'sps': 'san pedro sula', 'sp': 'san pedro sula', 'tgu': 'tegucigalpa', 'teg': 'tegucigalpa', 'tegus': 'tegucigalpa', 'ceiba': 'la ceiba', 'progreso': 'el progreso', 'src': 'santa rosa de copan' };
+
+        const BusquedaRegistroBlock = () => {
+            const [qrData, setQrData] = useState([]);
+            const [qrHeaders, setQrHeaders] = useState([]);
+            const [selectedCol, setSelectedCol] = useState('');
+            const [uniqueMode, setUniqueMode] = useState(true);
+            const [inputVal, setInputVal] = useState('');
+            const [foundList, setFoundList] = useState([]);
+            const [missingList, setMissingList] = useState([]);
+            const [excelDataExport, setExcelDataExport] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [processing, setProcessing] = useState(false);
+            const [modalItem, setModalItem] = useState(null);
+
+            const getSheetUrl = useCallback(() => {
+                try {
+                    const base = typeof atob !== 'undefined' ? atob(BUSQUEDA_QR_B64) : '';
+                    return base ? base + '?gid=' + BUSQUEDA_QR_GID + '&single=true&output=csv' : '';
+                } catch (e) { return ''; }
+            }, []);
+
+            useEffect(() => {
+                const url = getSheetUrl();
+                if (!url) { setError('URL de hoja QR no configurada'); setLoading(false); return; }
+                const fromFile = typeof window !== 'undefined' && window.location && window.location.protocol === 'file:';
+                const encoded = encodeURIComponent(url);
+                const proxies = ['https://corsproxy.io/?url=' + encoded, 'https://api.allorigins.win/raw?url=' + encoded];
+                const target = fromFile ? proxies[0] : url;
+                function tryNext(idx) {
+                    const nextUrl = idx < 0 ? target : (proxies[idx] || null);
+                    if (!nextUrl) { setError('No se pudo cargar la hoja QR'); setLoading(false); return; }
+                    fetch(nextUrl, { mode: 'cors' })
+                        .then(r => r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)))
+                        .then(text => {
+                            if (!text || text.length === 0 || /^\s*<html/i.test(text)) { tryNext(idx + 1); return; }
+                            const res = typeof Papa !== 'undefined' ? Papa.parse(text, { header: true, skipEmptyLines: true }) : { data: [], meta: { fields: [] } };
+                            if (res.data && res.data.length > 0) {
+                                setQrData(res.data);
+                                const h = (res.meta && res.meta.fields) ? res.meta.fields.slice(0, 8) : [];
+                                setQrHeaders(h);
+                                setSelectedCol(prev => prev || (h.find(x => /dni|identidad|cedula|id/i.test(x)) || h[0]) || '');
+                                setError(null);
+                            }
+                            setLoading(false);
+                        })
+                        .catch(() => {
+                            if (fromFile && idx < 0) tryNext(0);
+                            else if (idx + 1 < proxies.length) tryNext(idx + 1);
+                            else { setError('No se pudo cargar la hoja QR'); setLoading(false); }
+                        });
+                }
+                tryNext(-1);
+            }, [getSheetUrl]);
+
+            const cleanString = (str) => str ? str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim() : '';
+
+            const processData = useCallback(() => {
+                const raw = inputVal.split(/[\n,;\t]+/).map(s => s.trim()).filter(s => s !== '');
+                if (!raw.length) return;
+                setProcessing(true);
+                setTimeout(() => {
+                    try {
+                        const sh = { data: qrData, headers: qrHeaders };
+                        const col = selectedCol || (qrHeaders[0] || '');
+                        const foundByTerm = {};
+                        const freqMap = new Map();
+                        const searchSet = uniqueMode ? new Set(raw) : null;
+                        const searchTerms = uniqueMode ? null : raw.map(t => ({ original: t, norm: abbrMap[cleanString(t)] || cleanString(t) }));
+
+                        (sh.data || []).forEach(row => {
+                            const val = String(row[col] != null ? row[col] : '').trim();
+                            const valNorm = cleanString(val);
+                            let matchedTerm = null;
+                            if (uniqueMode) { if (searchSet.has(val)) matchedTerm = val; }
+                            else {
+                                for (let i = 0; i < searchTerms.length; i++) {
+                                    if (valNorm.indexOf(searchTerms[i].norm) !== -1) { matchedTerm = searchTerms[i].original; break; }
+                                }
+                            }
+                            if (matchedTerm) {
+                                freqMap.set(matchedTerm, (freqMap.get(matchedTerm) || 0) + 1);
+                                if (!foundByTerm[matchedTerm]) foundByTerm[matchedTerm] = [];
+                                foundByTerm[matchedTerm].push({ sheetName: 'QR', row, headers: sh.headers || [] });
+                            }
+                        });
+
+                        const found = Object.keys(foundByTerm).map(term => ({ term, occurrences: foundByTerm[term] }));
+                        const foundSet = new Set(Object.keys(foundByTerm));
+                        const missing = raw.filter(x => !foundSet.has(x));
+                        const headersAtoH = (sh.headers || []).slice(0, 8);
+                        const exportRows = [];
+                        found.forEach(f => {
+                            f.occurrences.forEach(occ => {
+                                const r = {};
+                                headersAtoH.forEach(k => { r[k] = occ.row[k] != null ? occ.row[k] : ''; });
+                                r['Hoja'] = occ.sheetName;
+                                exportRows.push(r);
+                            });
+                        });
+                        setFoundList(found);
+                        setMissingList(missing);
+                        setExcelDataExport(exportRows);
+                    } catch (e) { console.error(e); }
+                    setProcessing(false);
+                }, 300);
+            }, [inputVal, selectedCol, uniqueMode, qrData, qrHeaders]);
+
+            const downloadExcel = useCallback(async () => {
+                if (!excelDataExport || excelDataExport.length === 0) return;
+                try {
+                    const XLSX = await window.ensureXLSX();
+                    const exportHeaders = Object.keys(excelDataExport[0]);
+                    const ws = XLSX.utils.json_to_sheet(excelDataExport, { header: exportHeaders });
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Resultados');
+                    XLSX.writeFile(wb, 'Busqueda_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+                } catch (e) { console.error(e); }
+            }, [excelDataExport]);
+
+            const copyText = (txt) => {
+                try {
+                    const ta = document.createElement('textarea');
+                    ta.value = typeof txt === 'string' ? txt : (Array.isArray(txt) ? txt.join('\n') : '');
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                } catch (_) {}
+            };
+
+            if (loading) {
+                return (
+                    <div className="w-full max-w-5xl mx-auto p-8 text-center">
+                        <div className="inline-flex items-center gap-2 text-slate-500"><span className="animate-pulse">Cargando hoja QR...</span></div>
+                    </div>
+                );
+            }
+            if (error) {
+                return (
+                    <div className="w-full max-w-5xl mx-auto p-8">
+                        <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-6 text-center">
+                            <p className="font-medium text-red-700">{error}</p>
+                            <p className="text-sm text-red-600 mt-2">Verifica que el enlace de la hoja esté publicado para “Cualquier persona con el enlace”.</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            const total = (inputVal.split(/[\n,;\t]+/).map(s => s.trim()).filter(s => s !== '')).length;
+            const nameKey = (qrHeaders || []).find(h => /nombre|name|paciente/i.test(h));
+
+            return (
+                <div className="w-full min-w-0 max-w-5xl mx-auto space-y-6 animate-in">
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-800 brand-font">Búsqueda registro</h2>
+                        <p className="text-sm text-slate-500 mt-1">Buscar en la hoja QR por DNI o texto. Columnas A–H.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        <div className="lg:col-span-4 space-y-4">
+                            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                                <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><Icons.Settings size={18}/> Configuración</h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-600 mb-1">Columna a buscar (A–H)</label>
+                                        <select value={selectedCol} onChange={e => setSelectedCol(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500">
+                                            {(qrHeaders || []).map(h => <option key={h} value={h}>{h}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm font-medium text-slate-700">{uniqueMode ? 'Eliminar Duplicados' : 'Mostrar Todos (Inteligente)'}</span>
+                                        <button type="button" role="switch" aria-checked={!uniqueMode} onClick={() => setUniqueMode(u => !u)} className={`relative w-12 h-6 rounded-full transition-colors ${uniqueMode ? 'bg-slate-300' : 'bg-turquoise-500'}`}>
+                                            <span className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${uniqueMode ? 'left-1' : 'left-6'}`}/>
+                                        </button>
+                                    </div>
+                                    <p className="text-[11px] text-slate-500">{uniqueMode ? '1 resultado por valor exacto.' : 'Busca texto parcial y abreviaturas (sps, tgu, ceiba…).'}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="lg:col-span-8 space-y-4">
+                            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col h-[320px]">
+                                <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+                                    <span className="font-bold text-slate-800">Ingreso de datos</span>
+                                    <button type="button" onClick={() => { setInputVal(''); setFoundList([]); setMissingList([]); setExcelDataExport([]); }} className="text-xs text-slate-500 hover:text-red-600 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-red-50">Limpiar</button>
+                                </div>
+                                <div className="flex-1 p-4 pt-0 relative">
+                                    <textarea value={inputVal} onChange={e => setInputVal(e.target.value)} placeholder="Ej: 0801199912345 (Duplicados ON) — Ej: sps, ceiba (Duplicados OFF)" className="w-full h-full p-4 bg-slate-50/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-turquoise-500 resize-none font-mono text-sm" rows={6}/>
+                                    <div className="absolute bottom-4 right-4">
+                                        <button type="button" onClick={processData} disabled={processing || !inputVal.trim()} className="bg-gradient-to-r from-turquoise-600 to-teal-600 text-white px-6 py-3 rounded-xl font-semibold shadow-md hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                                            {processing ? <span className="animate-spin">⏳</span> : <Icons.Search size={18}/>} Procesar datos
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {(foundList.length > 0 || missingList.length > 0) && (
+                        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                            <div className="flex justify-between items-center border-b border-slate-200 bg-slate-50/70 px-5 py-3">
+                                <div className="flex gap-2">
+                                    <span className="text-sm font-bold text-slate-600">Buscados: {total}</span>
+                                    <span className="text-sm font-bold text-emerald-600">Encontrados: {foundList.length}</span>
+                                    <span className="text-sm font-bold text-red-600">No encontrados: {missingList.length}</span>
+                                </div>
+                                {excelDataExport.length > 0 && (
+                                    <button type="button" onClick={downloadExcel} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold">
+                                        <Icons.Download size={16}/> Descargar Excel
+                                    </button>
+                                )}
+                            </div>
+                            <div className="p-5 space-y-5">
+                                {foundList.length > 0 && (
+                                    <div>
+                                        <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><Icons.CheckCircle size={16} className="text-emerald-500"/> Resultados (columnas A–H)</h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[320px] overflow-y-auto">
+                                            {foundList.slice(0, 100).map((item, idx) => {
+                                                const firstRow = item.occurrences[0].row;
+                                                const subtitle = nameKey ? (firstRow[nameKey] || '') : '';
+                                                const sub = subtitle ? subtitle + ' · QR' : 'En: QR';
+                                                return (
+                                                    <button key={idx} type="button" onClick={() => setModalItem(item)} className="p-4 rounded-xl border border-slate-100 bg-white hover:bg-slate-50 text-left flex justify-between items-center btn-hover-effect">
+                                                        <div className="min-w-0"><p className="text-sm font-semibold text-slate-800 truncate">{item.term}</p><p className="text-xs text-slate-500 truncate mt-0.5">{sub}</p></div>
+                                                        <Icons.ChevronsRight size={16} className="text-slate-300 flex-shrink-0"/>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                                {missingList.length > 0 && (
+                                    <div className="rounded-xl border border-red-100 overflow-hidden bg-red-50/50">
+                                        <div className="px-4 py-3 flex justify-between items-center border-b border-red-100">
+                                            <h4 className="text-xs font-bold text-red-700">Sin coincidencia</h4>
+                                            <button type="button" onClick={() => copyText(missingList.join('\n'))} className="text-xs bg-white text-red-600 px-3 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 font-semibold">Copiar lista</button>
+                                        </div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 p-4 max-h-[160px] overflow-y-auto">
+                                            {missingList.map((val, i) => (
+                                                <button key={i} type="button" onClick={() => copyText(val)} className="text-left text-xs bg-white border border-red-100 text-red-600 p-2.5 rounded-lg hover:bg-red-50 truncate font-mono">{val}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {modalItem && (
+                        <Modal isOpen={!!modalItem} onClose={() => setModalItem(null)} title={modalItem.term} maxWidth="max-w-2xl">
+                            {modalItem.occurrences && modalItem.occurrences[0] && (() => {
+                                const occ = modalItem.occurrences[0];
+                                const headers = (occ.headers || []).slice(0, 8);
+                                const row = occ.row || {};
+                                return (
+                                    <div className="space-y-2">
+                                        {headers.map(h => {
+                                            const v = row[h];
+                                            const val = (v === undefined || v === null ? '' : String(v)).trim();
+                                            return (
+                                                <div key={h} className="bg-white p-3 rounded-xl border border-slate-100">
+                                                    <p className="text-[10px] font-bold text-turquoise-600 uppercase tracking-wider mb-1">{h}</p>
+                                                    <p className="text-sm text-slate-800 break-words">{val || '—'}</p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
+                        </Modal>
+                    )}
+                </div>
+            );
+        };
+
         const ReportesBitacoraBlock = ({ kits, patients }) => {
             const entregadosPorDia = useMemo(() => {
                 const conFecha = (kits || []).filter(k => (k.fechaEntregaKit || '').toString().trim());
@@ -450,8 +731,6 @@
             const descargarReporteExcelDia = async (tipo, listaKits, fechaDia) => {
                 try {
                     const XLSX = await window.ensureXLSX();
-                    const medsVan = (m) => (m || []).filter(x => x.dispensar !== false).map(x => (x.nombre || '—') + ' × ' + (x.cantidad || 1)).join('; ');
-                    const medsNoVan = (m) => (m || []).filter(x => x.dispensar === false).map(x => (x.nombre || '—') + ' × ' + (x.cantidad || 1)).join('; ');
                     const rows = (listaKits || []).map(k => {
                         const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
                         const meds = k.medicamentos || [];
@@ -460,16 +739,16 @@
                         return {
                             DNI: k.dni || pt?.dni || '—',
                             Nombre: k.nombre || pt?.nombre || '—',
-                            'Cantidad medicamentos': total ? `${dispensados}/${total}` : '0/0',
-                            'Medicamentos que van': medsVan(meds) || '—',
-                            'Medicamentos que no van': medsNoVan(meds) || '—',
                             'Tipo envío': (k.deliveryMode || '').toLowerCase() === 'ruta' ? 'Ruta' : 'Ventanilla',
-                            'Fecha entrega kit': k.fechaEntregaKit || '—',
-                            'Dirección entrega': (k.direccionEntrega || '').toString().trim() || '—',
-                            'Observaciones': (k.observacionesEntrega || k.observacionesLogistica || k.observations || '').toString().trim() || '—'
+                            'Cantidad medicamentos': total ? `${dispensados}/${total}` : '0/0',
+                            'Fecha entrega': k.fechaEntregaKit || '—'
                         };
                     });
                     const ws = XLSX.utils.json_to_sheet(rows);
+                    const lastRow = rows.length + 1;
+                    const totalRow = lastRow + 1;
+                    ws['A' + totalRow] = { t: 's', v: 'Total' };
+                    ws['B' + totalRow] = { f: '=CONTAR.A(A2:A' + lastRow + ')' };
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, ws, tipo === 'ruta' ? 'Ruta' : tipo === 'ventanilla' ? 'Ventanilla' : 'Total');
                     const sufijo = tipo === 'ruta' ? 'ruta' : tipo === 'ventanilla' ? 'ventanilla' : 'total';
@@ -2059,6 +2338,7 @@
                             <div className="p-6 space-y-1 overflow-y-auto flex-1">
                             <NavItem id="dashboard" label="Dashboard" icon={Icons.LayoutDashboard} />
                             <NavItem id="logistica" label="Lista de espera" icon={Icons.Truck} />
+                                <NavItem id="busquedaRegistro" label="Búsqueda registro" icon={Icons.Search} />
                                 {canViewReports && <button onClick={()=>{ setMobileMenuOpen(false); setView('reports'); }} className="w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl hover:bg-turquoise-800/50 text-turquoise-300 font-bold btn-hover-effect touch-manipulation"><Icons.List size={20}/> <span>Bitácora entregados</span></button>}
                                 {canViewConfig && <button onClick={()=>window.location.href='index.html'} className="w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl hover:bg-turquoise-800/50 text-turquoise-300 font-bold btn-hover-effect touch-manipulation"><Icons.Settings size={20}/> <span>Configuración</span></button>}
                                 {canViewConfig && <button onClick={()=>window.location.href='index.html'} className="w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl hover:bg-turquoise-800/50 text-turquoise-300 font-bold btn-hover-effect touch-manipulation"><Icons.UserCog size={20}/> <span>Usuarios</span></button>}
@@ -2095,6 +2375,7 @@
                         <nav className="flex-1 px-4 py-4 space-y-2 relative z-10 overflow-y-auto overflow-x-hidden">
                             <NavItem id="dashboard" label="Dashboard" icon={Icons.LayoutDashboard} />
                             <NavItem id="logistica" label="Lista de espera" icon={Icons.Truck} />
+                            <NavItem id="busquedaRegistro" label="Búsqueda registro" icon={Icons.Search} />
                             {canViewReports && <button onClick={()=>setView('reports')} className={`w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl transition-all font-bold group relative overflow-hidden btn-hover-effect touch-manipulation hover:bg-turquoise-800/50 text-turquoise-300 ${sidebarCollapsed ? 'justify-center' : ''}`}><Icons.List size={20}/> <span className={sidebarCollapsed ? 'hidden' : ''}>Bitácora entregados</span></button>}
                             {canViewConfig && <button onClick={()=>window.location.href='index.html'} className={`w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl transition-all font-bold group relative overflow-hidden btn-hover-effect touch-manipulation hover:bg-turquoise-800/50 text-turquoise-300 ${sidebarCollapsed ? 'justify-center' : ''}`}><Icons.Settings size={20}/> <span className={sidebarCollapsed ? 'hidden' : ''}>Configuración</span></button>}
                             {canViewConfig && <button onClick={()=>window.location.href='index.html'} className={`w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl transition-all font-bold group relative overflow-hidden btn-hover-effect touch-manipulation hover:bg-turquoise-800/50 text-turquoise-300 ${sidebarCollapsed ? 'justify-center' : ''}`}><Icons.UserCog size={20}/> <span className={sidebarCollapsed ? 'hidden' : ''}>Usuarios</span></button>}
@@ -2131,6 +2412,7 @@
                                 <LogisticaListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} onRefreshKits={refetchKits} currentUser={currentUserData} initialView={view} users={users} role={role} db={db} firebaseInitialized={firebaseInitialized} />
                             )}
                             {view === 'reports' && <ReportesBitacoraBlock kits={kits} patients={patients} />}
+                            {view === 'busquedaRegistro' && <BusquedaRegistroBlock />}
                             {['config','users'].includes(view) && <RedirectToIndex />}
                         </div>
                     </main>
