@@ -439,6 +439,7 @@
             }, [kits]);
             const [diaAbierto, setDiaAbierto] = useState(null);
             const [tabEntregados, setTabEntregados] = useState('ventanilla');
+            const [kitDetalle, setKitDetalle] = useState(null);
             const formatearDia = (f) => {
                 if (!f) return '—';
                 try { return new Date(f + 'T12:00:00').toLocaleDateString('es-HN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); } catch { return f; }
@@ -508,13 +509,13 @@
                                             datosDia.ventanilla.map(k => {
                                                 const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
                                                 return (
-                                                    <div key={k.id} className="py-4 flex flex-wrap items-center justify-between gap-2">
+                                                    <button key={k.id} type="button" onClick={() => setKitDetalle(k)} className="w-full py-4 flex flex-wrap items-center justify-between gap-2 hover:bg-indigo-50/80 rounded-xl px-2 -mx-2 transition-colors text-left cursor-pointer border-b border-slate-100 last:border-b-0">
                                                         <div>
                                                             <div className="font-bold text-slate-800">{k.nombre || pt?.nombre || '—'}</div>
                                                             <div className="text-sm text-slate-500">DNI: {k.dni || pt?.dni || '—'}</div>
                                                         </div>
                                                         <span className="px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-800 text-xs font-bold">Ventanilla</span>
-                                                    </div>
+                                                    </button>
                                                 );
                                             })
                                         )
@@ -525,13 +526,13 @@
                                             datosDia.ruta.map(k => {
                                                 const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
                                                 return (
-                                                    <div key={k.id} className="py-4 flex flex-wrap items-center justify-between gap-2">
+                                                    <button key={k.id} type="button" onClick={() => setKitDetalle(k)} className="w-full py-4 flex flex-wrap items-center justify-between gap-2 hover:bg-emerald-50/80 rounded-xl px-2 -mx-2 transition-colors text-left cursor-pointer border-b border-slate-100 last:border-b-0">
                                                         <div>
                                                             <div className="font-bold text-slate-800">{k.nombre || pt?.nombre || '—'}</div>
                                                             <div className="text-sm text-slate-500">DNI: {k.dni || pt?.dni || '—'}</div>
                                                         </div>
                                                         <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold">Ruta</span>
-                                                    </div>
+                                                    </button>
                                                 );
                                             })
                                         )
@@ -543,6 +544,86 @@
                             </div>
                         </Modal>
                     )}
+                    {kitDetalle && (() => {
+                        const k = kitDetalle;
+                        const pt = (patients || []).find(p => p.id === k.patientId || (p.dni && k.dni && String(p.dni).trim() === String(k.dni).trim()));
+                        const nombre = k.nombre || pt?.nombre || '—';
+                        const meds = k.medicamentos || [];
+                        const medsVan = meds.filter(m => m && m.dispensar !== false);
+                        const medsNoVan = meds.filter(m => m && m.dispensar === false);
+                        const esRefri = (m) => !!(m && (m.refrigerado === true || m.refrigerado === 'true' || String(m.refrigerado || '').toLowerCase() === 'true'));
+                        return (
+                            <Modal isOpen={true} onClose={() => setKitDetalle(null)} title={`Kit — ${nombre}`} maxWidth="max-w-2xl">
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        <div><span className="text-[10px] font-bold text-slate-400 block">DNI</span><span className="font-mono">{k.dni || pt?.dni || '—'}</span></div>
+                                        <div><span className="text-[10px] font-bold text-slate-400 block">Nombre</span><span>{nombre}</span></div>
+                                        <div><span className="text-[10px] font-bold text-slate-400 block">Modo entrega</span><span>{(k.deliveryMode||'').toLowerCase() === 'ruta' ? 'Ruta' : (k.deliveryMode||'').toLowerCase() === 'ventanilla' ? 'Ventanilla' : '—'}</span></div>
+                                        <div><span className="text-[10px] font-bold text-slate-400 block">Fecha entrega kit</span><span>{k.fechaEntregaKit || '—'}</span></div>
+                                        <div><span className="text-[10px] font-bold text-slate-400 block">Fecha armado</span><span>{k.fechaArmado || '—'}</span></div>
+                                        <div><span className="text-[10px] font-bold text-slate-400 block">Contact Center</span><span className="text-sm">{(k.contactCenter || pt?.agenteContactCenter || '—').toString().trim() || '—'}</span></div>
+                                    </div>
+                                    {k.direccionEntrega && (
+                                        <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                                            <span className="text-xs text-emerald-600 font-bold block mb-1">Dirección de entrega</span>
+                                            <div className="font-medium text-emerald-800">{k.direccionEntrega}</div>
+                                        </div>
+                                    )}
+                                    {(k.observacionesLogistica || k.observacionesEntrega || k.observations) && (
+                                        <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                                            <span className="text-xs text-amber-700 font-bold block mb-2">Observaciones</span>
+                                            <div className="text-sm text-amber-900 space-y-1">
+                                                {k.observacionesLogistica && <div><span className="font-semibold">Logística / CC:</span> {k.observacionesLogistica}</div>}
+                                                {k.observacionesEntrega && <div><span className="font-semibold">Entrega:</span> {k.observacionesEntrega}</div>}
+                                                {k.observations && !k.observacionesEntrega && <div><span className="font-semibold">Obs:</span> {k.observations}</div>}
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        <h5 className="text-xs font-bold text-slate-600 uppercase mb-3">Medicamentos ({medsVan.length} van / {medsNoVan.length} no van)</h5>
+                                        {medsVan.length > 0 && (
+                                            <div className="mb-3">
+                                                <span className="text-xs font-bold text-green-700 block mb-1">Van (dispensados)</span>
+                                                <ul className="space-y-1.5">
+                                                    {medsVan.map((m, i) => (
+                                                        <li key={i} className="p-2.5 rounded-lg text-sm bg-green-50 text-green-800 font-medium border border-green-200">
+                                                            <span>{m.nombre || '—'} × {m.cantidad || 1}</span>
+                                                            {esRefri(m) && <span className="text-sky-600 font-bold ml-1">❄</span>}
+                                                            {m.observaciones && <div className="text-xs text-green-700 mt-1 italic">{m.observaciones}</div>}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        {medsNoVan.length > 0 && (
+                                            <div>
+                                                <span className="text-xs font-bold text-red-700 block mb-1">No van</span>
+                                                <ul className="space-y-1.5">
+                                                    {medsNoVan.map((m, i) => (
+                                                        <li key={i} className="p-2.5 rounded-lg text-sm bg-red-50 text-red-800 font-medium border border-red-200">
+                                                            <span>{m.nombre || '—'} × {m.cantidad || 1}</span>
+                                                            {esRefri(m) && <span className="text-sky-600 font-bold ml-1">❄</span>}
+                                                            {m.observaciones && <div className="text-xs text-red-700 mt-1 italic">{m.observaciones}</div>}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        {meds.length === 0 && <p className="text-slate-500 text-sm">Sin medicamentos registrados.</p>}
+                                    </div>
+                                    {(() => { const refri = meds.filter(m => esRefri(m)); return refri.length > 0 ? (
+                                        <div className="p-4 bg-sky-50 rounded-xl border border-sky-200">
+                                            <span className="text-xs font-bold text-sky-700 block mb-1">❄ Refrigerados ({refri.length})</span>
+                                            <div className="text-sm text-sky-800">{refri.map(m => m.nombre || '—').join(' · ')}</div>
+                                        </div>
+                                    ) : null; })()}
+                                    <div className="pt-2 flex justify-end">
+                                        <button onClick={() => setKitDetalle(null)} className="px-6 py-2.5 rounded-xl bg-slate-600 text-white font-bold text-sm hover:bg-slate-700">Cerrar</button>
+                                    </div>
+                                </div>
+                            </Modal>
+                        );
+                    })()}
                 </div>
             );
         };
