@@ -532,7 +532,7 @@
                         const data = Array.isArray(qrData) ? qrData : [];
                         const head = Array.isArray(qrHeaders) ? qrHeaders : [];
                         const col = (selectedCol && head.indexOf(selectedCol) !== -1) ? selectedCol : (head[0] || '');
-                        if (!col) { setFoundList([]); setMissingList([]); setExcelDataExport([]); setProcessing(false); return; }
+                        if (!col) { setFoundList([]); setMissingList([]); setProcessing(false); return; }
                         const foundByTerm = {};
                         const searchSet = uniqueMode ? new Set(raw) : null;
                         const searchTerms = uniqueMode ? null : raw.filter(Boolean).map(t => ({ original: t, norm: abbrMap[cleanString(t)] || cleanString(t) }));
@@ -543,14 +543,13 @@
                             let matchedTerm = null;
                             if (uniqueMode) { if (searchSet.has(val)) matchedTerm = val; }
                             else {
-                                for (let i = 0; i < searchTerms.length; i++) {
+                                for (let i = 0; i < (searchTerms || []).length; i++) {
                                     if (valNorm.indexOf(searchTerms[i].norm) !== -1) { matchedTerm = searchTerms[i].original; break; }
                                 }
                             }
                             if (matchedTerm) {
-                                freqMap.set(matchedTerm, (freqMap.get(matchedTerm) || 0) + 1);
                                 if (!foundByTerm[matchedTerm]) foundByTerm[matchedTerm] = [];
-                                foundByTerm[matchedTerm].push({ sheetName: 'QR', row, headers: sh.headers || [] });
+                                foundByTerm[matchedTerm].push({ sheetName: 'QR', row, headers: head });
                             }
                         });
 
@@ -598,11 +597,21 @@
             const nameKey = headers.find(h => h && /nombre|name|paciente/i.test(String(h)));
             const safeSelectedCol = (headers.length > 0 && selectedCol && headers.indexOf(selectedCol) !== -1) ? selectedCol : (headers[0] || '');
 
+            const rowCount = Array.isArray(qrData) ? qrData.length : 0;
+
             return (
                 <div className="w-full min-w-0 max-w-5xl mx-auto space-y-6 animate-in">
-                    <div>
-                        <h2 className="text-2xl font-bold text-slate-800 brand-font">Búsqueda registro</h2>
-                        <p className="text-sm text-slate-500 mt-1">Buscar en la hoja QR por DNI o texto. Columnas A–H.</p>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-800 brand-font">Búsqueda registro</h2>
+                            <p className="text-sm text-slate-500 mt-1">Buscar en la hoja QR por DNI o texto. Columnas A–H.</p>
+                        </div>
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold text-sm">
+                            <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"/>
+                            <span>Hoja QR</span>
+                            <span className="font-bold">·</span>
+                            <span>{rowCount.toLocaleString('es-HN')} {rowCount === 1 ? 'fila' : 'filas'}</span>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
