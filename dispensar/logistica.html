@@ -155,7 +155,7 @@
             return firebaseInitPromise;
         };
 
-        const { useState, useEffect, useMemo, useRef } = React;
+        const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
         (function audioUnlock() {
             let unlocked = false;
@@ -461,7 +461,6 @@
             const [inputVal, setInputVal] = useState('');
             const [foundList, setFoundList] = useState([]);
             const [missingList, setMissingList] = useState([]);
-            const [excelDataExport, setExcelDataExport] = useState([]);
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
             const [processing, setProcessing] = useState(false);
@@ -558,39 +557,12 @@
                         const found = Object.keys(foundByTerm).map(term => ({ term, occurrences: foundByTerm[term] }));
                         const foundSet = new Set(Object.keys(foundByTerm));
                         const missing = raw.filter(x => !foundSet.has(x));
-                        const headersAtoH = head.slice(0, 8);
-                        const exportRows = [];
-                        found.forEach(f => {
-                            const occs = f.occurrences;
-                            if (!Array.isArray(occs)) return;
-                            occs.forEach(occ => {
-                                const r = {};
-                                headersAtoH.forEach(k => { r[k] = occ.row && occ.row[k] != null ? occ.row[k] : ''; });
-                                r['Hoja'] = occ.sheetName || 'QR';
-                                exportRows.push(r);
-                            });
-                        });
                         setFoundList(found);
                         setMissingList(missing);
-                        setExcelDataExport(exportRows);
                     } catch (e) { console.error(e); }
                     setProcessing(false);
                 }, 300);
             }, [inputVal, selectedCol, uniqueMode, qrData, qrHeaders]);
-
-            const downloadExcel = useCallback(async () => {
-                const data = Array.isArray(excelDataExport) ? excelDataExport : [];
-                if (data.length === 0) return;
-                try {
-                    const XLSX = await window.ensureXLSX();
-                    const first = data[0];
-                    const exportHeaders = first && typeof first === 'object' ? Object.keys(first) : [];
-                    const ws = exportHeaders.length ? XLSX.utils.json_to_sheet(data, { header: exportHeaders }) : XLSX.utils.aoa_to_sheet([[]]);
-                    const wb = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(wb, ws, 'Resultados');
-                    XLSX.writeFile(wb, 'Busqueda_' + new Date().toISOString().slice(0, 10) + '.xlsx');
-                } catch (e) { console.error(e); }
-            }, [excelDataExport]);
 
             const copyText = (txt) => {
                 try {
@@ -662,7 +634,7 @@
                             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col h-[320px]">
                                 <div className="p-4 border-b border-slate-100 flex justify-between items-center">
                                     <span className="font-bold text-slate-800">Ingreso de datos</span>
-                                    <button type="button" onClick={() => { setInputVal(''); setFoundList([]); setMissingList([]); setExcelDataExport([]); }} className="text-xs text-slate-500 hover:text-red-600 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-red-50">Limpiar</button>
+                                    <button type="button" onClick={() => { setInputVal(''); setFoundList([]); setMissingList([]); }} className="text-xs text-slate-500 hover:text-red-600 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-red-50">Limpiar</button>
                                 </div>
                                 <div className="flex-1 p-4 pt-0 relative">
                                     <textarea value={inputVal} onChange={e => setInputVal(e.target.value)} placeholder="Ej: 0801199912345 (Duplicados ON) — Ej: sps, ceiba (Duplicados OFF)" className="w-full h-full p-4 bg-slate-50/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-turquoise-500 resize-none font-mono text-sm" rows={6}/>
@@ -678,17 +650,10 @@
 
                     {(foundList.length > 0 || missingList.length > 0) && (
                         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                            <div className="flex justify-between items-center border-b border-slate-200 bg-slate-50/70 px-5 py-3">
-                                <div className="flex gap-2">
-                                    <span className="text-sm font-bold text-slate-600">Buscados: {total}</span>
-                                    <span className="text-sm font-bold text-emerald-600">Encontrados: {foundList.length}</span>
-                                    <span className="text-sm font-bold text-red-600">No encontrados: {missingList.length}</span>
-                                </div>
-                                {excelDataExport.length > 0 && (
-                                    <button type="button" onClick={downloadExcel} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold">
-                                        <Icons.Download size={16}/> Descargar Excel
-                                    </button>
-                                )}
+                            <div className="flex gap-2 flex-wrap border-b border-slate-200 bg-slate-50/70 px-5 py-3">
+                                <span className="text-sm font-bold text-slate-600">Buscados: {total}</span>
+                                <span className="text-sm font-bold text-emerald-600">Encontrados: {foundList.length}</span>
+                                <span className="text-sm font-bold text-red-600">No encontrados: {missingList.length}</span>
                             </div>
                             <div className="p-5 space-y-5">
                                 {foundList.length > 0 && (
