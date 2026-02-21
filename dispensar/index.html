@@ -7414,6 +7414,21 @@
                 if (k.contactCenter && String(k.contactCenter).trim()) return 'Contact Center';
                 return 'Revisión y asignación';
             };
+            // Estado para historial de kits: Entregado con éxito (fecha/hora), En despacho, En proceso de elaboración del kit
+            const getKitHistorialStatus = (k) => {
+                const fe = (k.fechaEntregaKit || '').toString().trim();
+                if (fe && fe !== 'undefined' && fe !== 'null') {
+                    const dateStr = fe.slice(0, 10);
+                    let fechaHora = '';
+                    try { fechaHora = new Date(dateStr + 'T12:00:00').toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (_) { fechaHora = dateStr; }
+                    if (k.horaEntregaKit) fechaHora += ' ' + (String(k.horaEntregaKit).trim() || '');
+                    return { label: 'Entregado con éxito', fechaHora, type: 'entregado' };
+                }
+                if (k.trabajadoLogistica || k.enviadoADespachoLogistica || (k.fechaTrabajoLogistica && String(k.fechaTrabajoLogistica).trim())) {
+                    return { label: 'En despacho', fechaHora: '', type: 'despacho' };
+                }
+                return { label: 'En proceso de elaboración del kit', fechaHora: '', type: 'elaboracion' };
+            };
             const getPatientActiveKitsStatus = (p) => {
                 const active = kits.filter(k => k.patientId === p.id && !(k.fechaEntregaKit && String(k.fechaEntregaKit).trim()));
                 if (active.length === 0) return [];
@@ -10816,6 +10831,19 @@ html +
                                                 <span className={`px-2 py-1 rounded text-xs font-bold border ${kit.deliveryMode==='ruta'?'bg-emerald-50 text-emerald-700 border-emerald-100':'bg-indigo-50 text-indigo-700 border-indigo-100'}`}>
                                                     {kit.deliveryMode === 'ruta' ? 'RUTA' : 'VENTANILLA'}
                                                 </span>
+                                                {(() => {
+                                                    const status = getKitHistorialStatus(kit);
+                                                    const isEntregado = status.type === 'entregado';
+                                                    const isDespacho = status.type === 'despacho';
+                                                    const isElab = status.type === 'elaboracion';
+                                                    const cls = isEntregado ? 'bg-green-50 text-green-700 border-green-200' : isDespacho ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200';
+                                                    return (
+                                                        <span className={`px-2 py-1 rounded text-xs font-bold border ${cls}`} title={isEntregado ? (status.fechaHora ? 'Entregado ' + status.fechaHora : 'Kit entregado') : (isDespacho ? 'En despacho logística' : 'En proceso de elaboración')}>
+                                                            {isEntregado ? '✓ Entregado con éxito' : status.label}
+                                                            {isEntregado && status.fechaHora && <span className="ml-1 font-normal opacity-90">— {status.fechaHora}</span>}
+                                                        </span>
+                                                    );
+                                                })()}
                                                 {isAgenteContactCenter && (() => {
                                                     const isEntregado = !!(kit.fechaEntregaKit && String(kit.fechaEntregaKit).trim());
                                                     const label = getKitStageLabel(kit);
