@@ -321,6 +321,8 @@
             const { canViewReports, canViewConfig } = permissions || {};
             const allCards = [
                 { id: 'logistica', label: 'Lista de espera', icon: Icons.Truck, color: 'bg-cyan-600', desc: 'Despacho, Operaciones, Calidad, Logística y Bitácora', allow: () => true },
+                { id: 'pacientesLogistica', label: 'Gestión de Pacientes', icon: Icons.Users, color: 'bg-turquoise-500', desc: 'Ver historial de kits por DH', allow: () => true },
+                { id: 'calendarioLogistica', label: 'Calendario Logística', icon: Icons.Calendar, color: 'bg-emerald-500', desc: 'Kits programados por fecha', allow: () => true },
                 { id: 'despachoLogisticaVentanilla', label: 'Despacho Logística Ventanilla', icon: Icons.Box, color: 'bg-indigo-500', desc: 'Kits listos para retiro en ventanilla', allow: () => true },
                 { id: 'despachoLogisticaRuta', label: 'Despacho Logística Ruta', icon: Icons.Truck, color: 'bg-emerald-500', desc: 'Kits listos para entrega en ruta', allow: () => true },
                 { id: 'reports', label: 'Bitácora entregados', icon: Icons.List, color: 'bg-amber-500', desc: 'Entregados por día: ventanilla y ruta', allow: () => !!canViewReports && role === 'supervisor' },
@@ -2107,6 +2109,566 @@
             );
         };
 
+        const GestionPacientesLogisticaBlock = ({ patients = [], kits = [], role, currentUser, onCreatePatient, onRefreshPatients }) => {
+            const [search, setSearch] = useState('');
+            const [selectedPatient, setSelectedPatient] = useState(null);
+            const [kitDetalle, setKitDetalle] = useState(null);
+            const [showCreateModal, setShowCreateModal] = useState(false);
+            const [savingPatient, setSavingPatient] = useState(false);
+            const [newPatient, setNewPatient] = useState({
+                dni: '',
+                nombre: '',
+                telefono: '',
+                direccion: '',
+                municipio: '',
+                tipoAfiliado: '',
+                edad: ''
+            });
+            const rolesDep = (currentUser?.rolesDepartamento || []).map(r => (r || '').toString().trim().toLowerCase());
+            const canCreateManualDh = (role || '').toLowerCase() === 'supervisor' || rolesDep.includes('supervisor');
+            const esRefrigerado = (m) => !!(m && (m.refrigerado === true || m.refrigerado === 'true' || String(m.refrigerado || '').toLowerCase() === 'true'));
+
+            const filteredPatients = useMemo(() => {
+                const t = (search || '').trim().toLowerCase();
+                if (!t) return patients;
+                return (patients || []).filter(p => {
+                    const n = (p.nombre || '').toLowerCase();
+                    const d = (p.dni || '').toString().toLowerCase();
+                    return n.includes(t) || d.includes(t);
+                });
+            }, [patients, search]);
+
+            const kitsByPatient = useMemo(() => {
+                const map = {};
+                (kits || []).forEach(k => {
+                    const pid = (k.patientId || '').toString().trim();
+                    if (pid) {
+                        if (!map[pid]) map[pid] = [];
+                        map[pid].push(k);
+                    }
+                });
+                return map;
+            }, [kits]);
+
+            const getPatientKits = (p) => {
+                const byId = kitsByPatient[p.id] || [];
+                if (byId.length > 0) return [...byId].sort((a, b) => new Date(b.fechaEntregaKit || b.fechaEntregaAsignada || b.fechaArmado || 0) - new Date(a.fechaEntregaKit || a.fechaEntregaAsignada || a.fechaArmado || 0));
+                const dni = (p.dni || '').toString().trim();
+                if (!dni) return [];
+                return (kits || [])
+                    .filter(k => (k.dni || '').toString().trim() === dni)
+                    .sort((a, b) => new Date(b.fechaEntregaKit || b.fechaEntregaAsignada || b.fechaArmado || 0) - new Date(a.fechaEntregaKit || a.fechaEntregaAsignada || a.fechaArmado || 0));
+            };
+
+            const guardarPacienteManual = async (e) => {
+                e.preventDefault();
+                if (!onCreatePatient) return;
+                const dni = (newPatient.dni || '').trim();
+                const nombre = (newPatient.nombre || '').trim();
+                if (!dni || !nombre) {
+                    alert('DNI y nombre son obligatorios.');
+                    return;
+                }
+                const exists = (patients || []).some(p => (p.dni || '').toString().trim() === dni);
+                if (exists) {
+                    alert('Ya existe un derechohabiente con ese DNI.');
+                    return;
+                }
+                const payload = {
+                    dni,
+                    nombre,
+                    telefono: (newPatient.telefono || '').trim(),
+                    direccion: (newPatient.direccion || '').trim(),
+                    municipio: (newPatient.municipio || '').trim(),
+                    tipoAfiliado: (newPatient.tipoAfiliado || '').trim(),
+                    edad: (newPatient.edad || '').toString().trim(),
+                    creationSource: 'manual',
+                    createdAt: new Date().toISOString()
+                };
+                setSavingPatient(true);
+                try {
+                    await onCreatePatient(payload);
+                    setShowCreateModal(false);
+                    setNewPatient({ dni: '', nombre: '', telefono: '', direccion: '', municipio: '', tipoAfiliado: '', edad: '' });
+                    if (onRefreshPatients) onRefreshPatients();
+                } catch (err) {
+                    alert('Error al crear derechohabiente: ' + (err?.message || err));
+                }
+                setSavingPatient(false);
+            };
+
+            return (
+                <div className="w-full min-w-0 max-w-6xl mx-auto space-y-6 animate-in">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-800 brand-font">Gestión de Pacientes</h2>
+                            <p className="text-sm text-slate-500 mt-1">Historial de kits por derechohabiente en modo solo lectura.</p>
+                        </div>
+                        {canCreateManualDh && (
+                            <button type="button" onClick={() => setShowCreateModal(true)} className="btn-list-action px-4 bg-turquoise-600 text-white hover:bg-turquoise-700 transition-colors btn-hover-effect flex items-center gap-2">
+                                <Icons.Users size={16}/> Crear DH manual
+                            </button>
+                        )}
+                    </div>
+                    <div className="bg-white rounded-3xl shadow-soft overflow-hidden border-l-4 border-l-turquoise-500">
+                        <div className="p-5 border-b border-turquoise-200 bg-turquoise-50/80">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <span className="font-bold text-turquoise-800">{filteredPatients.length} paciente(s)</span>
+                                <div className="relative w-full sm:w-72">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                    <input type="text" placeholder="Buscar por nombre o DNI..." value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:border-turquoise-300 focus:ring-1 focus:ring-turquoise-200" />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="divide-y divide-slate-100 max-h-[62vh] overflow-y-auto">
+                            {filteredPatients.length === 0 ? (
+                                <div className="p-12 text-center text-slate-500">
+                                    <Icons.Users size={48} className="mx-auto mb-3 opacity-40"/>
+                                    <p className="font-medium">No hay pacientes para mostrar</p>
+                                </div>
+                            ) : filteredPatients.map(p => {
+                                const pKits = getPatientKits(p);
+                                return (
+                                    <div key={p.id || p.dni} className="p-4 hover:bg-slate-50/70 transition-colors flex flex-wrap items-center gap-4">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="font-bold text-slate-800">{p.nombre || '—'}</span>
+                                                <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold">Kits: {pKits.length}</span>
+                                            </div>
+                                            <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
+                                                <span>DNI: {p.dni || '—'}</span>
+                                                <span>Municipio: {p.municipio || '—'}</span>
+                                            </div>
+                                        </div>
+                                        <div className="shrink-0">
+                                            <button type="button" onClick={() => setSelectedPatient(p)} className="btn-list-action bg-slate-500 text-white hover:bg-slate-600 transition-colors btn-hover-effect flex items-center gap-2">
+                                                <Icons.Eye size={16}/> Historial kits
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {showCreateModal && (
+                        <Modal isOpen={true} onClose={() => setShowCreateModal(false)} title="Nuevo Derechohabiente (manual)" maxWidth="max-w-2xl">
+                            <form onSubmit={guardarPacienteManual} className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">DNI *</label>
+                                        <input type="text" required value={newPatient.dni} onChange={e => setNewPatient({ ...newPatient, dni: e.target.value })} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Nombre *</label>
+                                        <input type="text" required value={newPatient.nombre} onChange={e => setNewPatient({ ...newPatient, nombre: e.target.value })} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Teléfono</label>
+                                        <input type="text" value={newPatient.telefono} onChange={e => setNewPatient({ ...newPatient, telefono: e.target.value })} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Edad</label>
+                                        <input type="text" value={newPatient.edad} onChange={e => setNewPatient({ ...newPatient, edad: e.target.value })} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Municipio</label>
+                                        <input type="text" value={newPatient.municipio} onChange={e => setNewPatient({ ...newPatient, municipio: e.target.value })} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tipo afiliado</label>
+                                        <input type="text" value={newPatient.tipoAfiliado} onChange={e => setNewPatient({ ...newPatient, tipoAfiliado: e.target.value })} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white" />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Dirección</label>
+                                        <input type="text" value={newPatient.direccion} onChange={e => setNewPatient({ ...newPatient, direccion: e.target.value })} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white" />
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-3 pt-2">
+                                    <button type="button" onClick={() => setShowCreateModal(false)} className="btn-list-action px-6 bg-slate-600 text-white hover:bg-slate-700 transition-colors btn-hover-effect">Cancelar</button>
+                                    <button type="submit" disabled={savingPatient} className="btn-list-action px-6 bg-turquoise-600 text-white hover:bg-turquoise-700 transition-colors btn-hover-effect">
+                                        {savingPatient ? 'Guardando...' : 'Guardar'}
+                                    </button>
+                                </div>
+                            </form>
+                        </Modal>
+                    )}
+
+                    {selectedPatient && (() => {
+                        const pKits = getPatientKits(selectedPatient);
+                        return (
+                            <Modal isOpen={true} onClose={() => setSelectedPatient(null)} title={`Historial de kits — ${selectedPatient.nombre || 'Paciente'}`} maxWidth="max-w-4xl">
+                                <div className="space-y-4">
+                                    <p className="text-sm text-slate-500">Solo visualización de historial. Use "Ver" para detalle de medicamentos, observaciones y clasificación de van/no van.</p>
+                                    <div className="divide-y divide-slate-100 max-h-[55vh] overflow-y-auto rounded-xl border border-slate-100">
+                                        {pKits.length === 0 ? (
+                                            <div className="p-10 text-center text-slate-500">Este paciente no tiene kits registrados.</div>
+                                        ) : pKits.map((k, i) => {
+                                            const isRuta = (k.deliveryMode || '').toLowerCase() === 'ruta';
+                                            return (
+                                                <div key={k.id || i} className="p-4 hover:bg-slate-50/70 transition-colors flex flex-wrap items-center gap-4">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <span className="font-bold text-slate-800">{k.nombre || selectedPatient.nombre || '—'}</span>
+                                                            <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${isRuta ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'}`}>{isRuta ? 'Ruta' : 'Ventanilla'}</span>
+                                                        </div>
+                                                        <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
+                                                            <span className="font-mono">Fecha asignada: {k.fechaEntregaAsignada || '—'}</span>
+                                                            <span className="font-mono">Fecha entrega: {k.fechaEntregaKit || '—'}</span>
+                                                            <span>{(k.medicamentos || []).length} med(s)</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="shrink-0">
+                                                        <button type="button" onClick={() => setKitDetalle(k)} className="btn-list-action bg-slate-500 text-white hover:bg-slate-600 transition-colors btn-hover-effect flex items-center gap-2">
+                                                            <Icons.Eye size={16}/> Ver
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="flex justify-end">
+                                        <button type="button" onClick={() => setSelectedPatient(null)} className="btn-list-action px-6 bg-slate-600 text-white hover:bg-slate-700 transition-colors btn-hover-effect">Cerrar</button>
+                                    </div>
+                                </div>
+                            </Modal>
+                        );
+                    })()}
+
+                    {kitDetalle && (() => {
+                        const meds = kitDetalle.medicamentos || [];
+                        const medsVan = meds.filter(m => m && m.dispensar !== false);
+                        const medsNoVan = meds.filter(m => m && m.dispensar === false);
+                        const refri = meds.filter(m => esRefrigerado(m));
+                        return (
+                            <Modal isOpen={true} onClose={() => setKitDetalle(null)} title={`Kit — ${kitDetalle.nombre || selectedPatient?.nombre || 'Paciente'}`} maxWidth="max-w-2xl">
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        <div><span className="text-[10px] font-bold text-slate-400 block">DNI</span><span className="font-mono">{kitDetalle.dni || selectedPatient?.dni || '—'}</span></div>
+                                        <div><span className="text-[10px] font-bold text-slate-400 block">Nombre</span><span>{kitDetalle.nombre || selectedPatient?.nombre || '—'}</span></div>
+                                        <div><span className="text-[10px] font-bold text-slate-400 block">Modo entrega</span><span>{(kitDetalle.deliveryMode || '').toLowerCase() === 'ruta' ? 'Ruta' : 'Ventanilla'}</span></div>
+                                        <div><span className="text-[10px] font-bold text-slate-400 block">Fecha entrega asignada</span><span>{kitDetalle.fechaEntregaAsignada || '—'}</span></div>
+                                    </div>
+                                    {(kitDetalle.observacionesLogistica || kitDetalle.observacionesEntrega || kitDetalle.observations) && (
+                                        <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                                            <span className="text-xs text-amber-700 font-bold block mb-2">Observaciones del kit</span>
+                                            <div className="text-sm text-amber-900 space-y-1">
+                                                {kitDetalle.observacionesLogistica && <div><span className="font-semibold">Logística / CC:</span> {kitDetalle.observacionesLogistica}</div>}
+                                                {kitDetalle.observacionesEntrega && <div><span className="font-semibold">Entrega:</span> {kitDetalle.observacionesEntrega}</div>}
+                                                {kitDetalle.observations && !kitDetalle.observacionesEntrega && <div><span className="font-semibold">Obs:</span> {kitDetalle.observations}</div>}
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        <h5 className="text-xs font-bold text-slate-600 uppercase mb-3">Medicamentos ({medsVan.length} van / {medsNoVan.length} no van)</h5>
+                                        {medsVan.length > 0 && (
+                                            <div className="mb-3">
+                                                <span className="text-xs font-bold text-green-700 block mb-1">Van (dispensados)</span>
+                                                <ul className="space-y-1.5">
+                                                    {medsVan.map((m, i) => (
+                                                        <li key={i} className="p-2.5 rounded-lg text-sm bg-green-50 text-green-800 font-medium border border-green-200">
+                                                            <span>{m.nombre || '—'} × {m.cantidad || 1}</span>
+                                                            {esRefrigerado(m) && <span className="text-sky-600 font-bold ml-1">❄</span>}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        {medsNoVan.length > 0 && (
+                                            <div>
+                                                <span className="text-xs font-bold text-red-700 block mb-1">No van</span>
+                                                <ul className="space-y-1.5">
+                                                    {medsNoVan.map((m, i) => (
+                                                        <li key={i} className="p-2.5 rounded-lg text-sm bg-red-50 text-red-800 font-medium border border-red-200">
+                                                            <span>{m.nombre || '—'} × {m.cantidad || 1}</span>
+                                                            {esRefrigerado(m) && <span className="text-sky-600 font-bold ml-1">❄</span>}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        {meds.length === 0 && <p className="text-slate-500 text-sm">Sin medicamentos registrados.</p>}
+                                    </div>
+                                    {refri.length > 0 && (
+                                        <div className="p-4 bg-sky-50 rounded-xl border border-sky-200">
+                                            <span className="text-xs font-bold text-sky-700 block mb-1">❄ Refrigerados ({refri.length})</span>
+                                            <div className="text-sm text-sky-800">{refri.map(m => m.nombre || '—').join(' · ')}</div>
+                                        </div>
+                                    )}
+                                    <div className="pt-2 flex justify-end">
+                                        <button onClick={() => setKitDetalle(null)} className="px-6 py-2.5 rounded-xl bg-slate-600 text-white font-bold text-sm hover:bg-slate-700">Cerrar</button>
+                                    </div>
+                                </div>
+                            </Modal>
+                        );
+                    })()}
+                </div>
+            );
+        };
+
+        const CalendarioLogisticaBlock = ({ kits = [], patients = [], onRefreshKits }) => {
+            const today = new Date();
+            const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+            const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
+            const [selectedDay, setSelectedDay] = useState(null);
+            const [dayTab, setDayTab] = useState('ventanilla');
+            const [daySearch, setDaySearch] = useState('');
+            const [kitDetalle, setKitDetalle] = useState(null);
+
+            const normalizeDate = (v) => {
+                const raw = (v || '').toString().trim();
+                if (!raw) return '';
+                if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+                try {
+                    const d = new Date(raw);
+                    return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+                } catch { return ''; }
+            };
+            const formatDate = (v) => {
+                const d = normalizeDate(v);
+                if (!d) return '—';
+                try { return new Date(d + 'T12:00:00').toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return d; }
+            };
+            const esRefrigerado = (m) => !!(m && (m.refrigerado === true || m.refrigerado === 'true' || String(m.refrigerado || '').toLowerCase() === 'true'));
+            const tipoKit = (k) => {
+                const meds = k.medicamentos || [];
+                const refri = meds.filter(esRefrigerado).length;
+                if (refri === 0 && !k.isRefrigerated && !(parseInt(String(k.cantRefriGlobal || 0), 10) > 0)) return 'Solo kit';
+                if (refri > 0 && refri === meds.length) return 'Solo refrigerado';
+                if (refri > 0 || k.isRefrigerated || parseInt(String(k.cantRefriGlobal || 0), 10) > 0) return 'Kit + refrigerado';
+                return 'Solo kit';
+            };
+            const isReprogrammedToDate = (k, dateStr) => {
+                const hist = Array.isArray(k.historialReprogramacionesFechaEntrega) ? k.historialReprogramacionesFechaEntrega : [];
+                return hist.some(h => normalizeDate(h?.fechaNueva) === dateStr);
+            };
+
+            const kitsCalendar = useMemo(() => {
+                return (kits || []).filter(k => {
+                    const f = normalizeDate(k.fechaEntregaAsignada);
+                    if (!f) return false;
+                    const confirmado = !!k.confirmadoPorContactCenter;
+                    const pasoLogistica = !!(k.trabajadoLogistica || k.fechaTrabajoLogistica || k.enviadoADespachoLogistica);
+                    return confirmado && pasoLogistica;
+                });
+            }, [kits]);
+
+            const kitsByDate = useMemo(() => {
+                const map = {};
+                kitsCalendar.forEach(k => {
+                    const d = normalizeDate(k.fechaEntregaAsignada);
+                    if (!d) return;
+                    if (!map[d]) map[d] = [];
+                    map[d].push(k);
+                });
+                return map;
+            }, [kitsCalendar]);
+
+            const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+            const firstDayOfWeek = new Date(selectedYear, selectedMonth - 1, 1).getDay();
+            const days = [];
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const dayKits = kitsByDate[dateStr] || [];
+                const ventanilla = dayKits.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla').length;
+                const ruta = dayKits.filter(k => (k.deliveryMode || '').toLowerCase() !== 'ventanilla').length;
+                days.push({ day: d, dateStr, total: dayKits.length, ventanilla, ruta });
+            }
+
+            const dayData = selectedDay ? (kitsByDate[selectedDay] || []) : [];
+            const dayCountV = dayData.filter(k => (k.deliveryMode || '').toLowerCase() === 'ventanilla').length;
+            const dayCountR = dayData.filter(k => (k.deliveryMode || '').toLowerCase() !== 'ventanilla').length;
+            const dayFiltered = useMemo(() => {
+                const modeFilter = dayTab === 'ventanilla'
+                    ? (k) => (k.deliveryMode || '').toLowerCase() === 'ventanilla'
+                    : (k) => (k.deliveryMode || '').toLowerCase() !== 'ventanilla';
+                const base = dayData.filter(modeFilter);
+                const t = (daySearch || '').trim().toLowerCase();
+                if (!t) return base;
+                return base.filter(k => {
+                    const pt = (patients || []).find(p => p.id === k.patientId || ((p.dni || '').toString().trim() && (k.dni || '').toString().trim() && (p.dni || '').toString().trim() === (k.dni || '').toString().trim()));
+                    return (k.nombre || pt?.nombre || '').toLowerCase().includes(t) || (k.dni || pt?.dni || '').toString().toLowerCase().includes(t) || (k.usuarioDelivery || '').toLowerCase().includes(t);
+                });
+            }, [dayData, dayTab, daySearch, patients]);
+
+            const descargarRutaExcel = async () => {
+                if (!selectedDay) return;
+                try {
+                    const XLSX = await window.ensureXLSX();
+                    const rowsBase = dayData
+                        .filter(k => (k.deliveryMode || '').toLowerCase() !== 'ventanilla')
+                        .map(k => {
+                            const pt = (patients || []).find(p => p.id === k.patientId || ((p.dni || '').toString().trim() && (k.dni || '').toString().trim() && (p.dni || '').toString().trim() === (k.dni || '').toString().trim()));
+                            return {
+                                dni: (k.dni || pt?.dni || '—').toString().trim() || '—',
+                                derechohabiente: (k.nombre || pt?.nombre || '—').toString().trim() || '—',
+                                cartero: (k.usuarioDelivery || 'Sin asignar').toString().trim() || 'Sin asignar',
+                                tipo: tipoKit(k),
+                                observaciones: (k.observacionesLogistica || k.observacionesEntrega || k.observations || '—').toString().trim() || '—'
+                            };
+                        })
+                        .sort((a, b) => a.cartero.localeCompare(b.cartero, 'es') || a.derechohabiente.localeCompare(b.derechohabiente, 'es'));
+
+                    const rows = rowsBase.map((r, i) => ({
+                        'N°': i + 1,
+                        'DNI': r.dni,
+                        'DERECHOHABIENTE': r.derechohabiente,
+                        'Cartero': r.cartero,
+                        'TIPO': r.tipo,
+                        'Observaciones': r.observaciones,
+                        'Firma': ''
+                    }));
+                    if (rows.length === 0) {
+                        alert('No hay kits de ruta para esta fecha.');
+                        return;
+                    }
+                    const headers = ['N°', 'DNI', 'DERECHOHABIENTE', 'Cartero', 'TIPO', 'Observaciones', 'Firma'];
+                    const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+                    ws['!cols'] = [
+                        { wch: 6 }, { wch: 16 }, { wch: 34 }, { wch: 24 }, { wch: 20 }, { wch: 38 }, { wch: 18 }
+                    ];
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Ruta');
+                    XLSX.writeFile(wb, `ruta_logistica_${selectedDay}.xlsx`);
+                } catch (e) {
+                    alert('Error al descargar Excel: ' + (e?.message || e));
+                }
+            };
+
+            return (
+                <div className="w-full min-w-0 max-w-6xl mx-auto space-y-6 animate-in">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-800 brand-font">Calendario Logística</h2>
+                            <p className="text-sm text-slate-500 mt-1">Kits programados y confirmados, ya trabajados en logística con fecha asignada.</p>
+                        </div>
+                        {onRefreshKits && (
+                            <button type="button" onClick={() => onRefreshKits()} className="btn-list-action px-4 bg-cyan-100 text-cyan-700 hover:bg-cyan-200 transition-colors btn-hover-effect flex items-center gap-2">
+                                <Icons.RefreshCw size={16}/> Refrescar
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="bg-white rounded-3xl shadow-soft overflow-hidden border-l-4 border-l-emerald-500">
+                        <div className="p-5 border-b border-emerald-200 bg-emerald-50/80 flex flex-wrap items-center gap-3 justify-between">
+                            <div className="flex items-center gap-3">
+                                <select value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value, 10))} className="p-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold">
+                                    {Array.from({ length: 8 }, (_, i) => 2026 + i).map(y => <option key={y} value={y}>{y}</option>)}
+                                </select>
+                                <select value={selectedMonth} onChange={e => setSelectedMonth(parseInt(e.target.value, 10))} className="p-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold">
+                                    {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                                </select>
+                            </div>
+                            <span className="text-sm text-emerald-800 font-semibold">{kitsCalendar.length} kit(s) programados</span>
+                        </div>
+                        <div className="p-5">
+                            <div className="grid grid-cols-7 gap-2 mb-2">
+                                {['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'].map(d => <div key={d} className="text-center text-xs font-bold text-slate-500">{d}</div>)}
+                            </div>
+                            <div className="grid grid-cols-7 gap-2">
+                                {Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`empty-${i}`} />)}
+                                {days.map(({ day, dateStr, total, ventanilla, ruta }) => (
+                                    <button key={dateStr} type="button" onClick={() => { setSelectedDay(dateStr); setDayTab(ruta > 0 ? 'ruta' : 'ventanilla'); setDaySearch(''); }} className={`p-2.5 rounded-xl border-2 transition-all text-left ${total > 0 ? 'border-emerald-300 bg-emerald-50 hover:bg-emerald-100' : 'border-slate-200 bg-slate-50 hover:bg-slate-100'}`}>
+                                        <div className="font-bold text-slate-700">{day}</div>
+                                        <div className="text-[11px] text-slate-500 mt-1">{total} kit(s)</div>
+                                        {total > 0 && <div className="text-[10px] text-slate-500 mt-0.5">V {ventanilla} · R {ruta}</div>}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {selectedDay && (
+                        <Modal isOpen={true} onClose={() => setSelectedDay(null)} title={`Calendario Logística — ${formatDate(selectedDay)}`} maxWidth="max-w-5xl">
+                            <div className="space-y-4">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div className="inline-flex flex-wrap gap-2 p-2 bg-slate-100 rounded-2xl border border-slate-200">
+                                        <button type="button" onClick={() => setDayTab('ventanilla')} className={`btn-list-nav ${dayTab === 'ventanilla' ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-white/70'}`}>Ventanilla ({dayCountV})</button>
+                                        <button type="button" onClick={() => setDayTab('ruta')} className={`btn-list-nav ${dayTab === 'ruta' ? 'bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-200' : 'text-slate-600 hover:bg-white/70'}`}>Ruta ({dayCountR})</button>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        {dayTab === 'ruta' && (
+                                            <button type="button" onClick={descargarRutaExcel} className="btn-list-action px-4 bg-green-100 text-green-700 hover:bg-green-200 transition-colors btn-hover-effect flex items-center gap-2">
+                                                <Icons.Download size={16}/> Descargar Excel Ruta
+                                            </button>
+                                        )}
+                                        <div className="relative w-full sm:w-72">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                            <input type="text" placeholder="Buscar por nombre, DNI o cartero..." value={daySearch} onChange={e => setDaySearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-xl border border-slate-200 text-sm outline-none focus:border-cyan-300 focus:ring-1 focus:ring-cyan-200" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="divide-y divide-slate-100 max-h-[56vh] overflow-y-auto rounded-xl border border-slate-100">
+                                    {dayFiltered.length === 0 ? (
+                                        <div className="p-10 text-center text-slate-500">No hay kits para esta vista.</div>
+                                    ) : dayFiltered.map((k, i) => {
+                                        const pt = (patients || []).find(p => p.id === k.patientId || ((p.dni || '').toString().trim() && (k.dni || '').toString().trim() && (p.dni || '').toString().trim() === (k.dni || '').toString().trim()));
+                                        const isRuta = (k.deliveryMode || '').toLowerCase() !== 'ventanilla';
+                                        const reprogramado = isReprogrammedToDate(k, selectedDay);
+                                        return (
+                                            <div key={k.id || i} className="p-4 hover:bg-slate-50/60 transition-colors flex flex-wrap items-center gap-4">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="font-bold text-slate-800">{k.nombre || pt?.nombre || '—'}</span>
+                                                        <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${isRuta ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'}`}>{isRuta ? 'Ruta' : 'Ventanilla'}</span>
+                                                        {reprogramado && <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 text-xs font-bold">Reprogramado</span>}
+                                                    </div>
+                                                    <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
+                                                        <span>DNI: {k.dni || pt?.dni || '—'}</span>
+                                                        {isRuta && <span>Cartero: {k.usuarioDelivery || 'Sin asignar'}</span>}
+                                                        <span>Tipo: {tipoKit(k)}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="shrink-0">
+                                                    <button type="button" onClick={() => setKitDetalle(k)} className="btn-list-action bg-slate-500 text-white hover:bg-slate-600 transition-colors btn-hover-effect flex items-center gap-2">
+                                                        <Icons.Eye size={16}/> Ver
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
+
+                    {kitDetalle && (() => {
+                        const pt = (patients || []).find(p => p.id === kitDetalle.patientId || ((p.dni || '').toString().trim() && (kitDetalle.dni || '').toString().trim() && (p.dni || '').toString().trim() === (kitDetalle.dni || '').toString().trim()));
+                        const meds = kitDetalle.medicamentos || [];
+                        const medsVan = meds.filter(m => m && m.dispensar !== false);
+                        const medsNoVan = meds.filter(m => m && m.dispensar === false);
+                        return (
+                            <Modal isOpen={true} onClose={() => setKitDetalle(null)} title={`Kit — ${kitDetalle.nombre || pt?.nombre || 'Paciente'}`} maxWidth="max-w-2xl">
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        <div><span className="text-[10px] font-bold text-slate-400 block">DNI</span><span className="font-mono">{kitDetalle.dni || pt?.dni || '—'}</span></div>
+                                        <div><span className="text-[10px] font-bold text-slate-400 block">Nombre</span><span>{kitDetalle.nombre || pt?.nombre || '—'}</span></div>
+                                        <div><span className="text-[10px] font-bold text-slate-400 block">Tipo</span><span>{tipoKit(kitDetalle)}</span></div>
+                                        <div><span className="text-[10px] font-bold text-slate-400 block">Cartero</span><span>{kitDetalle.usuarioDelivery || '—'}</span></div>
+                                    </div>
+                                    {(kitDetalle.observacionesLogistica || kitDetalle.observacionesEntrega || kitDetalle.observations) && (
+                                        <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-sm text-amber-900">
+                                            <span className="text-xs text-amber-700 font-bold block mb-2">Observaciones</span>
+                                            {kitDetalle.observacionesLogistica || kitDetalle.observacionesEntrega || kitDetalle.observations}
+                                        </div>
+                                    )}
+                                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        <h5 className="text-xs font-bold text-slate-600 uppercase mb-3">Medicamentos ({medsVan.length} van / {medsNoVan.length} no van)</h5>
+                                        {medsVan.length > 0 && <ul className="space-y-1.5 mb-3">{medsVan.map((m, i) => <li key={i} className="p-2.5 rounded-lg text-sm bg-green-50 text-green-800 border border-green-200">{m.nombre || '—'} × {m.cantidad || 1}</li>)}</ul>}
+                                        {medsNoVan.length > 0 && <ul className="space-y-1.5">{medsNoVan.map((m, i) => <li key={i} className="p-2.5 rounded-lg text-sm bg-red-50 text-red-800 border border-red-200">{m.nombre || '—'} × {m.cantidad || 1}</li>)}</ul>}
+                                        {meds.length === 0 && <p className="text-slate-500 text-sm">Sin medicamentos registrados.</p>}
+                                    </div>
+                                    <div className="pt-2 flex justify-end">
+                                        <button onClick={() => setKitDetalle(null)} className="px-6 py-2.5 rounded-xl bg-slate-600 text-white font-bold text-sm hover:bg-slate-700">Cerrar</button>
+                                    </div>
+                                </div>
+                            </Modal>
+                        );
+                    })()}
+                </div>
+            );
+        };
+
         const LoginBlock = ({ onLogin }) => {
             const [username, setUsername] = useState('');
             const [password, setPassword] = useState('');
@@ -2252,6 +2814,11 @@
                     cacheManager.clearCache(cacheManager.KITS_CACHE_KEY);
                     await loadKits();
                 }
+            };
+            const savePatientManual = async (data) => {
+                if (!firebaseInitialized || !db) throw new Error('Base de datos no disponible');
+                await db.collection('prod_patients').add(data);
+                await loadPatients();
             };
 
             useEffect(() => {
@@ -2423,6 +2990,8 @@
                             <div className="p-6 space-y-1 overflow-y-auto flex-1">
                             <NavItem id="dashboard" label="Dashboard" icon={Icons.LayoutDashboard} />
                             <NavItem id="logistica" label="Lista de espera" icon={Icons.Truck} />
+                            <NavItem id="pacientesLogistica" label="Gestión de Pacientes" icon={Icons.Users} />
+                            <NavItem id="calendarioLogistica" label="Calendario Logística" icon={Icons.Calendar} />
                                 <NavItem id="busquedaRegistro" label="Búsqueda registro" icon={Icons.Search} />
                                 {canViewReports && <button onClick={()=>{ setMobileMenuOpen(false); setView('reports'); }} className="w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl hover:bg-turquoise-800/50 text-turquoise-300 font-bold btn-hover-effect touch-manipulation"><Icons.List size={20}/> <span>Bitácora entregados</span></button>}
                                 {canViewConfig && <button onClick={()=>window.location.href='index.html'} className="w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl hover:bg-turquoise-800/50 text-turquoise-300 font-bold btn-hover-effect touch-manipulation"><Icons.Settings size={20}/> <span>Configuración</span></button>}
@@ -2460,6 +3029,8 @@
                         <nav className="flex-1 px-4 py-4 space-y-2 relative z-10 overflow-y-auto overflow-x-hidden">
                             <NavItem id="dashboard" label="Dashboard" icon={Icons.LayoutDashboard} />
                             <NavItem id="logistica" label="Lista de espera" icon={Icons.Truck} />
+                            <NavItem id="pacientesLogistica" label="Gestión de Pacientes" icon={Icons.Users} />
+                            <NavItem id="calendarioLogistica" label="Calendario Logística" icon={Icons.Calendar} />
                             <NavItem id="busquedaRegistro" label="Búsqueda registro" icon={Icons.Search} />
                             {canViewReports && <button onClick={()=>setView('reports')} className={`w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl transition-all font-bold group relative overflow-hidden btn-hover-effect touch-manipulation hover:bg-turquoise-800/50 text-turquoise-300 ${sidebarCollapsed ? 'justify-center' : ''}`}><Icons.List size={20}/> <span className={sidebarCollapsed ? 'hidden' : ''}>Bitácora entregados</span></button>}
                             {canViewConfig && <button onClick={()=>window.location.href='index.html'} className={`w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl transition-all font-bold group relative overflow-hidden btn-hover-effect touch-manipulation hover:bg-turquoise-800/50 text-turquoise-300 ${sidebarCollapsed ? 'justify-center' : ''}`}><Icons.Settings size={20}/> <span className={sidebarCollapsed ? 'hidden' : ''}>Configuración</span></button>}
@@ -2495,6 +3066,23 @@
                             {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} kits={kits} currentUser={currentUserForBlocks} permissions={permissions} notifications={notifications} notificationsToday={notificationsToday} notificationPanelOpen={notificationPanelOpen} setNotificationPanelOpen={setNotificationPanelOpen} floatingNotifications={floatingNotifications} />}
                             {['logistica','despachoLogisticaVentanilla','despachoLogisticaRuta'].includes(view) && (
                                 <LogisticaListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} onRefreshKits={refetchKits} currentUser={currentUserData} initialView={view} users={users} role={role} db={db} firebaseInitialized={firebaseInitialized} />
+                            )}
+                            {view === 'pacientesLogistica' && (
+                                <GestionPacientesLogisticaBlock
+                                    patients={patients}
+                                    kits={kits}
+                                    role={role}
+                                    currentUser={currentUserData}
+                                    onCreatePatient={savePatientManual}
+                                    onRefreshPatients={loadPatients}
+                                />
+                            )}
+                            {view === 'calendarioLogistica' && (
+                                <CalendarioLogisticaBlock
+                                    kits={kits}
+                                    patients={patients}
+                                    onRefreshKits={refetchKits}
+                                />
                             )}
                             {view === 'reports' && <ReportesBitacoraBlock kits={kits} patients={patients} />}
                             {view === 'busquedaRegistro' && <BusquedaErrorBoundary><BusquedaRegistroBlock qrData={busquedaQrData} qrHeaders={busquedaQrHeaders} loading={busquedaQrLoading} error={busquedaQrError} /></BusquedaErrorBoundary>}
