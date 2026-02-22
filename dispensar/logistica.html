@@ -318,8 +318,10 @@
             useEffect(() => { fetchWeather(); const iv = setInterval(() => fetchWeather(), 300000); return () => clearInterval(iv); }, [fetchWeather]);
             const userDept = (currentUser?.departamento || '').toLowerCase();
             const userRoles = currentUser?.rolesDepartamento || [];
+            const isMotorista = (userRoles || []).map(r => (r || '').toString().trim().toLowerCase()).includes('motorista');
             const { canViewReports, canViewConfig } = permissions || {};
             const allCards = [
+                { id: 'motoristaRuta', label: 'Mi Ruta del Día', icon: Icons.Truck, color: 'bg-emerald-600', desc: 'Entregas asignadas para hoy', allow: () => isMotorista },
                 { id: 'logistica', label: 'Lista de espera', icon: Icons.Truck, color: 'bg-cyan-600', desc: 'Despacho, Operaciones, Calidad, Logística y Bitácora', allow: () => true },
                 { id: 'pacientesLogistica', label: 'Gestión de Pacientes', icon: Icons.Users, color: 'bg-turquoise-500', desc: 'Ver historial de kits por DH', allow: () => true },
                 { id: 'calendarioLogistica', label: 'Calendario Logística', icon: Icons.Calendar, color: 'bg-emerald-500', desc: 'Kits programados por fecha', allow: () => true },
@@ -331,7 +333,7 @@
                 { id: 'config', label: 'Configuración', icon: Icons.Settings, color: 'bg-slate-500', desc: 'Catálogos del Sistema', allow: () => !!canViewConfig, externalLink: 'index.html' },
                 { id: 'users', label: 'Gestión de Usuarios', icon: Icons.UserCog, color: 'bg-indigo-500', desc: 'Control de accesos', allow: () => !!canViewConfig, externalLink: 'index.html' },
             ];
-            const visibleCards = allCards.filter(c => c.allow());
+            const visibleCards = (isMotorista ? allCards.filter(c => c.id === 'motoristaRuta') : allCards).filter(c => c.allow());
             const today = new Date().toISOString().split('T')[0];
             const kitsLogisticaHoy = (kits||[]).filter(k => {
                 if (!k.fechaEntregaLogistica) return false;
@@ -358,10 +360,10 @@
                                     ) : (
                                         <div className="divide-y divide-slate-100">
                                             {notificationsToday.map(n => (
-                                                <div key={n.id} className="p-3 hover:bg-slate-50">
+                                                <div key={n.id} className={`p-3 hover:bg-slate-50 ${n.tipo === 'no_entregado' ? 'bg-red-50/40' : ''}`}>
                                                     <div className="font-medium text-slate-800">{n.paciente}</div>
                                                     <div className="text-xs text-slate-500">DNI: {n.dni}</div>
-                                                    <div className="text-xs text-cyan-600 mt-1">{n.origen}</div>
+                                                    <div className={`text-xs mt-1 ${n.tipo === 'no_entregado' ? 'text-red-700 font-semibold' : 'text-cyan-600'}`}>{n.origen}</div>
                                                 </div>
                                             ))}
                                         </div>
@@ -1027,6 +1029,12 @@
             const [editKit, setEditKit] = useState(null);
             const [editKitData, setEditKitData] = useState({ deliveryMode: '', usuarioDelivery: '' });
             const [editKitGuardado, setEditKitGuardado] = useState(false);
+            const [showGestionIncidenciaModal, setShowGestionIncidenciaModal] = useState(false);
+            const [incidenciaKit, setIncidenciaKit] = useState(null);
+            const [incidenciaData, setIncidenciaData] = useState({ usuarioDelivery: '', fechaEntregaAsignada: '' });
+            const [activandoJornada, setActivandoJornada] = useState(false);
+            const rolesNorm = ((currentUser?.rolesDepartamento) || []).map(r => (r || '').toString().trim().toLowerCase());
+            const canManageRutas = (role === 'supervisor' || role === 'admin' || role === 'superadmin') || rolesNorm.includes('supervisor') || rolesNorm.includes('asignador de rutas despacho logistica');
 
             const formatearFechaBitacora = (f) => {
                 if (!f) return '';
@@ -1201,6 +1209,76 @@
                     await onSaveKit(kit.id, { devueltoVentanilla: true }, kit.patientId, true);
                     if (onRefreshKits) onRefreshKits();
                 } catch (err) { alert('Error: ' + (err?.message || err)); }
+            };
+            const handleConfirmarRecogidaDelivery = async (kit) => {
+                if (!kit || !onSaveKit) return;
+                if (!confirm('¿Confirmar que el delivery (cartero) recogió este kit?')) return;
+                const today = new Date().toISOString().split('T')[0];
+                const hora = new Date().toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit', hour12: false });
+                try {
+                    await onSaveKit(kit.id, { recogidoPorDelivery: true, fechaRecogidoDelivery: today, horaRecogidoDelivery: hora, estadoRuta: 'en_ruta' }, kit.patientId, true);
+                    if (onRefreshKits) onRefreshKits();
+                } catch (err) { alert('Error: ' + (err?.message || err)); }
+            };
+            const abrirGestionIncidencia = (kit) => {
+                if (!kit) return;
+                setIncidenciaKit(kit);
+                setIncidenciaData({
+                    usuarioDelivery: (kit.usuarioDelivery || '').trim(),
+                    fechaEntregaAsignada: toDateInputValue(kit.fechaEntregaAsignada || '') || ''
+                });
+                setShowGestionIncidenciaModal(true);
+            };
+            const guardarGestionIncidencia = async () => {
+                if (!incidenciaKit || !onSaveKit) return;
+                const newDelivery = (incidenciaData.usuarioDelivery || '').trim();
+                const newFecha = (incidenciaData.fechaEntregaAsignada || '').trim();
+                if (!newDelivery) { alert('Debe asignar motorista.'); return; }
+                if (!newFecha) { alert('Debe definir fecha de entrega.'); return; }
+                const now = new Date().toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit', hour12: false });
+                const today = new Date().toISOString().split('T')[0];
+                const payload = {
+                    usuarioDelivery: newDelivery,
+                    fechaEntregaAsignada: newFecha,
+                    estadoRuta: 'despacho',
+                    recogidoPorDelivery: false,
+                    fechaRecogidoDelivery: '',
+                    horaRecogidoDelivery: '',
+                    confirmacionManana: '',
+                    motivoNoLoLlevo: '',
+                    fechaConfirmacionManana: '',
+                    horaConfirmacionManana: '',
+                    resultadoEntrega: '',
+                    observacionNoEntrega: '',
+                    fechaResultadoEntrega: '',
+                    horaResultadoEntrega: '',
+                    cierreJornadaPendiente: false
+                };
+                try {
+                    await onSaveKit(incidenciaKit.id, payload, incidenciaKit.patientId, true);
+                    setShowGestionIncidenciaModal(false);
+                    setIncidenciaKit(null);
+                    if (onRefreshKits) onRefreshKits();
+                } catch (err) { alert('Error: ' + (err?.message || err)); }
+            };
+            const activarJornadaMotoristaDia = async (fecha, motoristaKey, kitsDelMotorista) => {
+                if (!canManageRutas || !onSaveKit) return;
+                if (!fecha || !motoristaKey || !Array.isArray(kitsDelMotorista) || kitsDelMotorista.length === 0) return;
+                if (!confirm(`¿Activar jornada matutina para ${motoristaKey} en ${formatearFechaBitacora(fecha)}?`)) return;
+                setActivandoJornada(true);
+                const now = new Date().toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit', hour12: false });
+                const today = new Date().toISOString().split('T')[0];
+                try {
+                    for (const k of kitsDelMotorista) {
+                        await onSaveKit(k.id, {
+                            activacionMananaHabilitada: true,
+                            fechaActivacionManana: today,
+                            horaActivacionManana: now
+                        }, k.patientId, true);
+                    }
+                    if (onRefreshKits) onRefreshKits();
+                } catch (err) { alert('Error activando jornada: ' + (err?.message || err)); }
+                setActivandoJornada(false);
             };
 
             // Lista Despacho (solo lectura): misma lógica que Calidad — kits con receta impresa, no enviados a Operaciones
@@ -1468,21 +1546,36 @@
             const renderRowDespachoLogistica = (kit, index = 0) => {
                 if (!kit) return null;
                 const pt = (patients||[]).find(p => p.id===kit.patientId || (p.dni&&kit.dni&&String(p.dni).trim()===String(kit.dni).trim()));
+                const noEntregado = (kit.resultadoEntrega === 'no_entregado') || (kit.estadoRuta === 'no_entregado') || (kit.confirmacionManana === 'no_lo_llevo');
+                const enRuta = !!kit.recogidoPorDelivery && !((kit.fechaEntregaKit || '').toString().trim());
                 return (
                     <div key={kit.id || `kit-${index}`} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4 border-b border-slate-100 last:border-b-0">
                         <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                                 <span className="font-bold text-slate-800">{kit.nombre||pt?.nombre||'—'}</span>
                                 <span className="px-2 py-0.5 rounded-lg bg-cyan-100 text-cyan-700 text-xs font-bold">Delivery: {kit.usuarioDelivery||'—'}</span>
+                                {noEntregado && <span className="px-2 py-0.5 rounded-lg bg-red-100 text-red-800 text-xs font-bold">No entregado</span>}
+                                {enRuta && <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold">En ruta</span>}
                             </div>
                             <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
                                 <span>DNI: {kit.dni||pt?.dni||'—'}</span>
                                 <span className="font-mono">Enviado: {kit.fechaEnvioDespachoLogistica||kit.fechaTrabajoLogistica||'—'}</span>
                                 <span className={kit.deliveryMode==='ruta' ? 'text-emerald-600 font-semibold' : 'text-indigo-600 font-semibold'}>{kit.deliveryMode==='ruta' ? 'Ruta' : 'Ventanilla'}</span>
                             </div>
+                            {noEntregado && (
+                                <div className="text-xs text-red-700 mt-1">
+                                    Motivo: {kit.observacionNoEntrega || kit.motivoNoLoLlevo || 'Sin observación'}
+                                </div>
+                            )}
                             {kit.direccionEntrega && <div className="text-xs text-slate-600 mt-1">📍 {kit.direccionEntrega}</div>}
                         </div>
                         <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            {kit.deliveryMode==='ruta' && !(kit.fechaEntregaKit||'').toString().trim() && !kit.recogidoPorDelivery && (
+                                <button onClick={(e)=>{ e.stopPropagation(); handleConfirmarRecogidaDelivery(kit); }} className="btn-list-action bg-emerald-600 text-white hover:bg-emerald-700 transition-colors btn-hover-effect flex items-center gap-2" title="Confirmar que el delivery recogió el kit"><Icons.Truck size={16}/> Confirmar recogida</button>
+                            )}
+                            {canManageRutas && noEntregado && (
+                                <button onClick={()=>abrirGestionIncidencia(kit)} className="btn-list-action bg-violet-600 text-white hover:bg-violet-700 transition-colors btn-hover-effect flex items-center gap-2" title="Reasignar motorista o reprogramar fecha">Gestionar incidencia</button>
+                            )}
                             <button onClick={()=>abrirEditarKit(kit)} className="btn-list-action bg-amber-600 text-white hover:bg-amber-700 transition-colors btn-hover-effect flex items-center gap-2" title="Cambiar tipo de envío">Editar</button>
                             <button onClick={()=>abrirTrabajarMarcarEntregado(kit)} className="btn-list-action bg-green-600 text-white hover:bg-green-700 transition-colors btn-hover-effect flex items-center gap-2"><Icons.CheckCircle size={16}/> Marcar Entregado</button>
                             <button onClick={()=>abrirVer(kit)} className="btn-list-action bg-slate-500 text-white hover:bg-slate-600 transition-colors btn-hover-effect flex items-center gap-2"><Icons.Eye size={16}/> Ver</button>
@@ -1822,13 +1915,27 @@
                                     {motoristasFiltrados.length === 0 ? (
                                         <div className="col-span-full p-8 text-center text-slate-500">Sin resultados</div>
                                     ) : motoristasFiltrados.map(({ motoristaKey, nombre, kits }, idx) => (
-                                        <button key={motoristaKey || `m-${idx}`} onClick={()=>setDespachoRutaMotoristaModal({ fecha: despachoRutaModalAbierto, motoristaKey, nombre })} className="flex items-center gap-3 p-4 rounded-2xl border-2 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/50 transition-all text-left btn-hover-effect group min-h-[72px]">
-                                            <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-700 group-hover:bg-emerald-200"><Icons.Users size={24}/></div>
-                                            <div className="min-w-0 flex-1">
-                                                <div className="font-bold text-slate-800 truncate">{nombre}</div>
-                                                <div className="text-xs text-slate-500">{kits.length} kit(s)</div>
-                                            </div>
-                                        </button>
+                                        <div key={motoristaKey || `m-${idx}`} className="rounded-2xl border-2 border-slate-200 overflow-hidden">
+                                            <button onClick={()=>setDespachoRutaMotoristaModal({ fecha: despachoRutaModalAbierto, motoristaKey, nombre })} className="w-full flex items-center gap-3 p-4 hover:border-emerald-400 hover:bg-emerald-50/50 transition-all text-left btn-hover-effect group min-h-[72px]">
+                                                <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-700 group-hover:bg-emerald-200"><Icons.Users size={24}/></div>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="font-bold text-slate-800 truncate">{nombre}</div>
+                                                    <div className="text-xs text-slate-500">{kits.length} kit(s)</div>
+                                                </div>
+                                            </button>
+                                            {canManageRutas && (
+                                                <div className="px-3 pb-3">
+                                                    <button
+                                                        type="button"
+                                                        disabled={activandoJornada}
+                                                        onClick={(e)=>{ e.stopPropagation(); activarJornadaMotoristaDia(despachoRutaModalAbierto, motoristaKey, kits); }}
+                                                        className="w-full btn-list-action bg-emerald-100 text-emerald-800 hover:bg-emerald-200 transition-colors"
+                                                    >
+                                                        {activandoJornada ? 'Activando...' : 'Activar jornada mañana'}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     ))}
                                 </div>
                                 <div className="flex justify-end pt-2">
@@ -1905,6 +2012,32 @@
                         </Modal>
                         );
                     })()}
+
+                    {showGestionIncidenciaModal && incidenciaKit && (
+                        <Modal isOpen={true} onClose={() => { setShowGestionIncidenciaModal(false); setIncidenciaKit(null); }} title="Gestionar incidencia de ruta" maxWidth="max-w-lg">
+                            <div className="space-y-4">
+                                <p className="text-sm text-slate-600">Reasigna motorista o reprograma fecha para reintento de entrega.</p>
+                                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800">
+                                    Motivo actual: {incidenciaKit.observacionNoEntrega || incidenciaKit.motivoNoLoLlevo || 'Sin motivo'}
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Motorista *</label>
+                                    <select value={incidenciaData.usuarioDelivery || ''} onChange={e => setIncidenciaData(prev => ({ ...prev, usuarioDelivery: e.target.value }))} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white">
+                                        <option value="">— Seleccionar motorista —</option>
+                                        {deliveryUsers.map(u => <option key={u.id} value={u.nombre}>{u.nombre}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Nueva fecha entrega *</label>
+                                    <input type="date" value={incidenciaData.fechaEntregaAsignada || ''} onChange={e => setIncidenciaData(prev => ({ ...prev, fechaEntregaAsignada: e.target.value }))} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white" />
+                                </div>
+                                <div className="flex gap-3">
+                                    <button type="button" onClick={guardarGestionIncidencia} className="flex-1 py-3 bg-violet-600 text-white font-bold rounded-xl hover:bg-violet-700">Guardar gestión</button>
+                                    <button type="button" onClick={() => { setShowGestionIncidenciaModal(false); setIncidenciaKit(null); }} className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl hover:bg-slate-700">Cancelar</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
 
                     {showVerModal && verKit && (
                         <Modal isOpen={true} onClose={cerrarVer} title="Ver kit" maxWidth="max-w-2xl">
@@ -2135,6 +2268,20 @@
                     if (k.horaEntregaKit) fechaHora += ' ' + (String(k.horaEntregaKit).trim() || '');
                     return { label: 'Entregado con éxito', fechaHora, type: 'entregado' };
                 }
+                if ((k.resultadoEntrega === 'no_entregado') || (k.estadoRuta === 'no_entregado') || (k.confirmacionManana === 'no_lo_llevo')) {
+                    const fr = (k.fechaResultadoEntrega || k.fechaConfirmacionManana || '').toString().trim().slice(0, 10);
+                    let fechaHora = '';
+                    if (fr) try { fechaHora = new Date(fr + 'T12:00:00').toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (_) { fechaHora = fr; }
+                    if (k.horaResultadoEntrega) fechaHora += (fechaHora ? ' ' : '') + (String(k.horaResultadoEntrega).trim() || '');
+                    return { label: 'No entregado', fechaHora, type: 'no_entregado' };
+                }
+                if (k.recogidoPorDelivery && (k.fechaRecogidoDelivery || k.fechaRecogidoPorDelivery)) {
+                    const fr = (k.fechaRecogidoDelivery || k.fechaRecogidoPorDelivery || '').toString().trim().slice(0, 10);
+                    let fechaHora = '';
+                    if (fr) try { fechaHora = new Date(fr + 'T12:00:00').toLocaleDateString('es-HN', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (_) { fechaHora = fr; }
+                    if (k.horaRecogidoDelivery) fechaHora += (fechaHora ? ' ' : '') + (String(k.horaRecogidoDelivery).trim() || '');
+                    return { label: 'En ruta', fechaHora, type: 'ruta' };
+                }
                 if (k.trabajadoLogistica || k.enviadoADespachoLogistica || (k.fechaTrabajoLogistica && String(k.fechaTrabajoLogistica).trim())) {
                     return { label: 'En despacho', fechaHora: '', type: 'despacho' };
                 }
@@ -2320,8 +2467,10 @@
                                             const isRuta = (k.deliveryMode || '').toLowerCase() === 'ruta';
                                             const status = getKitHistorialStatus(k);
                                             const isEntregado = status.type === 'entregado';
+                                            const isNoEntregado = status.type === 'no_entregado';
+                                            const isRuta = status.type === 'ruta';
                                             const isDespacho = status.type === 'despacho';
-                                            const statusCls = isEntregado ? 'bg-green-100 text-green-800' : isDespacho ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700';
+                                            const statusCls = isEntregado ? 'bg-green-100 text-green-800' : isNoEntregado ? 'bg-red-100 text-red-800' : isRuta ? 'bg-emerald-100 text-emerald-800' : isDespacho ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700';
                                             return (
                                                 <div key={k.id || i} className="p-4 hover:bg-slate-50/70 transition-colors flex flex-wrap items-center gap-4">
                                                     <div className="flex-1 min-w-0">
@@ -2330,7 +2479,7 @@
                                                             <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${isRuta ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'}`}>{isRuta ? 'Ruta' : 'Ventanilla'}</span>
                                                             <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${statusCls}`}>
                                                                 {isEntregado ? '✓ Entregado con éxito' : status.label}
-                                                                {isEntregado && status.fechaHora && <span className="ml-1 font-normal opacity-90">— {status.fechaHora}</span>}
+                                                                {(isEntregado || isRuta || isNoEntregado) && status.fechaHora && <span className="ml-1 font-normal opacity-90">— {status.fechaHora}</span>}
                                                             </span>
                                                         </div>
                                                         <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
@@ -2690,6 +2839,299 @@
             );
         };
 
+        const MotoristaRutaBlock = ({ kits = [], patients = [], onSaveKit, currentUser, onRefreshKits }) => {
+            const [search, setSearch] = useState('');
+            const [kitAbierto, setKitAbierto] = useState(null);
+            const [showNoLlevoModal, setShowNoLlevoModal] = useState(false);
+            const [noLlevoKit, setNoLlevoKit] = useState(null);
+            const [motivoNoLlevo, setMotivoNoLlevo] = useState('');
+            const [showNoEntregadoModal, setShowNoEntregadoModal] = useState(false);
+            const [noEntregadoKit, setNoEntregadoKit] = useState(null);
+            const [observacionNoEntregado, setObservacionNoEntregado] = useState('');
+            const [showCierreJornadaModal, setShowCierreJornadaModal] = useState(false);
+            const [cierreObsByKit, setCierreObsByKit] = useState({});
+            const [saving, setSaving] = useState(false);
+            const me = ((currentUser?.nombre || currentUser?.name || currentUser?.username || '') + '').trim();
+            const meNorm = me.toLowerCase();
+            const today = new Date().toISOString().split('T')[0];
+            const toDate = (v) => {
+                const raw = (v || '').toString().trim();
+                if (!raw) return '';
+                if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+                try { return new Date(raw).toISOString().split('T')[0]; } catch { return ''; }
+            };
+            const nowTime = () => new Date().toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+            const myTodayKits = useMemo(() => (kits || []).filter(k => {
+                const isRuta = (k.deliveryMode || '').toLowerCase() === 'ruta';
+                if (!isRuta) return false;
+                const user = (k.usuarioDelivery || '').toString().trim().toLowerCase();
+                if (!user || user !== meNorm) return false;
+                const f = toDate(k.fechaEntregaAsignada);
+                return f === today;
+            }).sort((a,b) => new Date(a.fechaEntregaAsignada || 0) - new Date(b.fechaEntregaAsignada || 0)), [kits, meNorm, today]);
+
+            const activadaJornada = useMemo(() => myTodayKits.some(k => !!k.activacionMananaHabilitada), [myTodayKits]);
+            const estadoKit = (k) => {
+                const fe = (k.fechaEntregaKit || '').toString().trim();
+                if (fe && fe !== 'undefined' && fe !== 'null') return { key: 'entregado', label: 'Entregado', cls: 'bg-green-100 text-green-800' };
+                if ((k.resultadoEntrega === 'no_entregado') || (k.estadoRuta === 'no_entregado') || (k.confirmacionManana === 'no_lo_llevo')) return { key: 'no_entregado', label: 'No entregado', cls: 'bg-red-100 text-red-800' };
+                if (k.recogidoPorDelivery) return { key: 'en_ruta', label: 'En ruta', cls: 'bg-emerald-100 text-emerald-800' };
+                if (k.enviadoADespachoLogistica || k.trabajadoLogistica) return { key: 'despacho', label: 'En despacho', cls: 'bg-amber-100 text-amber-800' };
+                return { key: 'elaboracion', label: 'En proceso de elaboración del kit', cls: 'bg-slate-100 text-slate-700' };
+            };
+
+            const list = useMemo(() => {
+                const t = (search || '').trim().toLowerCase();
+                if (!t) return myTodayKits;
+                return myTodayKits.filter(k => {
+                    const pt = (patients || []).find(p => p.id === k.patientId || ((p.dni || '').toString().trim() && (k.dni || '').toString().trim() && (p.dni || '').toString().trim() === (k.dni || '').toString().trim()));
+                    return (k.nombre || pt?.nombre || '').toLowerCase().includes(t) || (k.dni || pt?.dni || '').toString().toLowerCase().includes(t);
+                });
+            }, [myTodayKits, search, patients]);
+
+            const confirmarLlevaKit = async (kit) => {
+                if (!activadaJornada) return;
+                setSaving(true);
+                try {
+                    await onSaveKit(kit.id, {
+                        confirmacionManana: 'confirmado',
+                        fechaConfirmacionManana: today,
+                        horaConfirmacionManana: nowTime(),
+                        estadoRuta: kit.recogidoPorDelivery ? 'en_ruta' : 'despacho'
+                    }, kit.patientId, true);
+                    if (onRefreshKits) onRefreshKits();
+                } catch (e) { alert('Error: ' + (e?.message || e)); }
+                setSaving(false);
+            };
+
+            const confirmarNoLlevo = async () => {
+                if (!noLlevoKit) return;
+                const motivo = (motivoNoLlevo || '').trim();
+                if (!motivo) { alert('Debe indicar por qué no llevará el kit.'); return; }
+                setSaving(true);
+                try {
+                    await onSaveKit(noLlevoKit.id, {
+                        confirmacionManana: 'no_lo_llevo',
+                        motivoNoLoLlevo: motivo,
+                        fechaConfirmacionManana: today,
+                        horaConfirmacionManana: nowTime(),
+                        estadoRuta: 'no_entregado',
+                        resultadoEntrega: 'no_entregado',
+                        observacionNoEntrega: 'No lo llevó en la mañana: ' + motivo,
+                        fechaResultadoEntrega: today,
+                        horaResultadoEntrega: nowTime()
+                    }, noLlevoKit.patientId, true);
+                    window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'no_entregado', paciente: noLlevoKit.nombre || '—', dni: noLlevoKit.dni || '—', origen: 'Motorista: no lo llevó', skipSound: true } }));
+                    setShowNoLlevoModal(false);
+                    setNoLlevoKit(null);
+                    setMotivoNoLlevo('');
+                    if (onRefreshKits) onRefreshKits();
+                } catch (e) { alert('Error: ' + (e?.message || e)); }
+                setSaving(false);
+            };
+
+            const marcarEntregado = async (kit) => {
+                setSaving(true);
+                try {
+                    await onSaveKit(kit.id, {
+                        fechaEntregaKit: today,
+                        horaEntregaKit: nowTime(),
+                        resultadoEntrega: 'entregado',
+                        estadoRuta: 'entregado',
+                        observacionNoEntrega: '',
+                        fechaResultadoEntrega: '',
+                        horaResultadoEntrega: ''
+                    }, kit.patientId, true);
+                    setKitAbierto(null);
+                    if (onRefreshKits) onRefreshKits();
+                } catch (e) { alert('Error: ' + (e?.message || e)); }
+                setSaving(false);
+            };
+
+            const confirmarNoEntregado = async () => {
+                if (!noEntregadoKit) return;
+                const obs = (observacionNoEntregado || '').trim();
+                if (!obs) { alert('Debe indicar la observación de no entrega.'); return; }
+                setSaving(true);
+                try {
+                    await onSaveKit(noEntregadoKit.id, {
+                        resultadoEntrega: 'no_entregado',
+                        estadoRuta: 'no_entregado',
+                        observacionNoEntrega: obs,
+                        fechaResultadoEntrega: today,
+                        horaResultadoEntrega: nowTime()
+                    }, noEntregadoKit.patientId, true);
+                    window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'no_entregado', paciente: noEntregadoKit.nombre || '—', dni: noEntregadoKit.dni || '—', origen: 'Motorista: no entregado', skipSound: true } }));
+                    setShowNoEntregadoModal(false);
+                    setNoEntregadoKit(null);
+                    setObservacionNoEntregado('');
+                    setKitAbierto(null);
+                    if (onRefreshKits) onRefreshKits();
+                } catch (e) { alert('Error: ' + (e?.message || e)); }
+                setSaving(false);
+            };
+
+            const pendientesCierre = useMemo(() => myTodayKits.filter(k => {
+                const st = estadoKit(k).key;
+                return st !== 'entregado' && st !== 'no_entregado';
+            }), [myTodayKits]);
+
+            const ejecutarCierreJornada = async () => {
+                const faltan = pendientesCierre.filter(k => !(cierreObsByKit[k.id] || '').trim());
+                if (faltan.length > 0) { alert('Todos los pendientes deben tener observación.'); return; }
+                setSaving(true);
+                try {
+                    for (const kit of pendientesCierre) {
+                        const obs = (cierreObsByKit[kit.id] || '').trim();
+                        await onSaveKit(kit.id, {
+                            resultadoEntrega: 'no_entregado',
+                            estadoRuta: 'no_entregado',
+                            observacionNoEntrega: obs,
+                            fechaResultadoEntrega: today,
+                            horaResultadoEntrega: nowTime(),
+                            cierreJornadaPendiente: true
+                        }, kit.patientId, true);
+                        window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'no_entregado', paciente: kit.nombre || '—', dni: kit.dni || '—', origen: 'Cierre de jornada motorista', skipSound: true } }));
+                    }
+                    setShowCierreJornadaModal(false);
+                    setCierreObsByKit({});
+                    if (onRefreshKits) onRefreshKits();
+                } catch (e) { alert('Error: ' + (e?.message || e)); }
+                setSaving(false);
+            };
+
+            return (
+                <div className="w-full min-w-0 max-w-6xl mx-auto space-y-6 animate-in">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-800 brand-font">Ruta del Motorista</h2>
+                            <p className="text-sm text-slate-500 mt-1">Lista del día para {me || 'motorista'} ({today}).</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {onRefreshKits && <button type="button" onClick={() => onRefreshKits()} className="btn-list-action px-4 bg-cyan-100 text-cyan-700 hover:bg-cyan-200 transition-colors btn-hover-effect flex items-center gap-2"><Icons.RefreshCw size={16}/> Refrescar</button>}
+                            <button type="button" onClick={() => setShowCierreJornadaModal(true)} className="btn-list-action px-4 bg-red-100 text-red-700 hover:bg-red-200 transition-colors btn-hover-effect">Cerrar jornada</button>
+                        </div>
+                    </div>
+
+                    {!activadaJornada && (
+                        <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm font-semibold">
+                            La jornada matutina aún no ha sido activada por despacho/supervisor para tus kits de hoy.
+                        </div>
+                    )}
+
+                    <div className="bg-white rounded-3xl shadow-soft overflow-hidden border-l-4 border-l-emerald-500">
+                        <div className="p-5 border-b border-emerald-200 bg-emerald-50/80">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <span className="font-bold text-emerald-800">{list.length} kit(s) del día</span>
+                                <div className="relative w-full sm:w-72">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                    <input type="text" placeholder="Buscar por nombre o DNI..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:border-cyan-300 focus:ring-1 focus:ring-cyan-200" />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="divide-y divide-slate-100 max-h-[62vh] overflow-y-auto">
+                            {list.length === 0 ? (
+                                <div className="p-10 text-center text-slate-500">No tienes kits asignados para hoy.</div>
+                            ) : list.map((k, i) => {
+                                const st = estadoKit(k);
+                                const pt = (patients || []).find(p => p.id === k.patientId || ((p.dni || '').toString().trim() && (k.dni || '').toString().trim() && (p.dni || '').toString().trim() === (k.dni || '').toString().trim()));
+                                return (
+                                    <div key={k.id || i} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="font-bold text-slate-800">{k.nombre || pt?.nombre || '—'}</span>
+                                                <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${st.cls}`}>{st.label}</span>
+                                            </div>
+                                            <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
+                                                <span>DNI: {k.dni || pt?.dni || '—'}</span>
+                                                <span className="font-mono">Fecha: {k.fechaEntregaAsignada || '—'}</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                            {!k.confirmacionManana && st.key !== 'entregado' && st.key !== 'no_entregado' && (
+                                                <>
+                                                    <button type="button" disabled={!activadaJornada || saving} onClick={() => confirmarLlevaKit(k)} className="btn-list-action bg-emerald-600 text-white hover:bg-emerald-700 transition-colors btn-hover-effect">Confirmo que lo llevo</button>
+                                                    <button type="button" disabled={!activadaJornada || saving} onClick={() => { setNoLlevoKit(k); setShowNoLlevoModal(true); }} className="btn-list-action bg-amber-600 text-white hover:bg-amber-700 transition-colors btn-hover-effect">No lo llevo</button>
+                                                </>
+                                            )}
+                                            {st.key !== 'entregado' && st.key !== 'no_entregado' && (
+                                                <button type="button" onClick={() => setKitAbierto(k)} className="btn-list-action bg-cyan-600 text-white hover:bg-cyan-700 transition-colors btn-hover-effect flex items-center gap-2"><Icons.Eye size={16}/> Abrir kit</button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {kitAbierto && (
+                        <Modal isOpen={true} onClose={() => setKitAbierto(null)} title={`Ruta — ${kitAbierto.nombre || 'Kit'}`} maxWidth="max-w-2xl">
+                            <div className="space-y-4">
+                                <p className="text-sm text-slate-500">Marca el resultado final de la entrega.</p>
+                                <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                    <div><span className="text-[10px] font-bold text-slate-400 block">DNI</span><span className="font-mono">{kitAbierto.dni || '—'}</span></div>
+                                    <div><span className="text-[10px] font-bold text-slate-400 block">Fecha programada</span><span>{kitAbierto.fechaEntregaAsignada || '—'}</span></div>
+                                </div>
+                                <div className="flex flex-wrap gap-3">
+                                    <button type="button" disabled={saving} onClick={() => marcarEntregado(kitAbierto)} className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700">Entregado</button>
+                                    <button type="button" disabled={saving} onClick={() => { setNoEntregadoKit(kitAbierto); setShowNoEntregadoModal(true); }} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700">No entregado</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
+
+                    {showNoLlevoModal && noLlevoKit && (
+                        <Modal isOpen={true} onClose={() => { setShowNoLlevoModal(false); setNoLlevoKit(null); setMotivoNoLlevo(''); }} title="No lo llevo (mañana)" maxWidth="max-w-lg">
+                            <div className="space-y-4">
+                                <p className="text-sm text-slate-600">Indica por qué no llevarás este kit hoy.</p>
+                                <textarea value={motivoNoLlevo} onChange={e=>setMotivoNoLlevo(e.target.value)} rows={4} className="w-full p-3 border border-slate-200 rounded-xl text-sm" placeholder="Ejemplo: Es de otro motorista / No viene en carga / otra causa..." />
+                                <div className="flex gap-3">
+                                    <button type="button" disabled={saving} onClick={confirmarNoLlevo} className="flex-1 py-3 bg-amber-600 text-white font-bold rounded-xl hover:bg-amber-700">Guardar</button>
+                                    <button type="button" onClick={() => { setShowNoLlevoModal(false); setNoLlevoKit(null); setMotivoNoLlevo(''); }} className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl hover:bg-slate-700">Cancelar</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
+
+                    {showNoEntregadoModal && noEntregadoKit && (
+                        <Modal isOpen={true} onClose={() => { setShowNoEntregadoModal(false); setNoEntregadoKit(null); setObservacionNoEntregado(''); }} title="No entregado" maxWidth="max-w-lg">
+                            <div className="space-y-4">
+                                <p className="text-sm text-slate-600">La observación es obligatoria para registrar no entrega.</p>
+                                <textarea value={observacionNoEntregado} onChange={e=>setObservacionNoEntregado(e.target.value)} rows={4} className="w-full p-3 border border-slate-200 rounded-xl text-sm" placeholder="Describe por qué no se entregó..." />
+                                <div className="flex gap-3">
+                                    <button type="button" disabled={saving} onClick={confirmarNoEntregado} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700">Guardar no entregado</button>
+                                    <button type="button" onClick={() => { setShowNoEntregadoModal(false); setNoEntregadoKit(null); setObservacionNoEntregado(''); }} className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl hover:bg-slate-700">Cancelar</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
+
+                    {showCierreJornadaModal && (
+                        <Modal isOpen={true} onClose={() => setShowCierreJornadaModal(false)} title="Cerrar jornada" maxWidth="max-w-3xl">
+                            <div className="space-y-4">
+                                <p className="text-sm text-slate-600">Los kits pendientes se marcarán como no entregados. Debes escribir observación en cada uno.</p>
+                                <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+                                    {pendientesCierre.length === 0 ? (
+                                        <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-green-800 text-sm font-semibold">No hay pendientes por cerrar hoy.</div>
+                                    ) : pendientesCierre.map((k, i) => (
+                                        <div key={k.id || i} className="p-3 rounded-xl border border-slate-200">
+                                            <div className="font-semibold text-slate-800">{k.nombre || '—'} <span className="text-xs text-slate-500">DNI: {k.dni || '—'}</span></div>
+                                            <textarea value={cierreObsByKit[k.id] || ''} onChange={e => setCierreObsByKit(prev => ({ ...prev, [k.id]: e.target.value }))} rows={2} className="w-full mt-2 p-2.5 border border-slate-200 rounded-lg text-sm" placeholder="Observación obligatoria..." />
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex gap-3">
+                                    <button type="button" disabled={saving || pendientesCierre.length === 0} onClick={ejecutarCierreJornada} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700">Confirmar cierre</button>
+                                    <button type="button" onClick={() => setShowCierreJornadaModal(false)} className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl hover:bg-slate-700">Cancelar</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
+                </div>
+            );
+        };
+
         const LoginBlock = ({ onLogin }) => {
             const [username, setUsername] = useState('');
             const [password, setPassword] = useState('');
@@ -2726,7 +3168,7 @@
                     if (pass !== password) { setError('Usuario o contraseña incorrectos'); setLoading(false); return; }
                     const dep = (u.departamento||'').toLowerCase().trim();
                     const roles = (u.rolesDepartamento||[]).map(r=>(r||'').toLowerCase().trim());
-                    const canLogistica = dep==='logistica' && (roles.includes('asignador de rutas despacho logistica') || roles.includes('supervisor'));
+                    const canLogistica = dep==='logistica' && (roles.includes('asignador de rutas despacho logistica') || roles.includes('supervisor') || roles.includes('motorista'));
                     if (!canLogistica) {
                         setError('No tienes acceso a Logística. Debes ser del departamento Logística (asignador o supervisor).');
                         setLoading(false);
@@ -2790,6 +3232,7 @@
             const [users, setUsers] = useState([]);
             const [cacheManager] = useState(new CacheManager());
             const prevKitsEntregadoRef = useRef(null);
+            const prevKitsNoEntregadoRef = useRef(null);
 
             const loadKits = async () => {
                 try {
@@ -2851,6 +3294,7 @@
                     const unsub = db.collection('prod_kits').onSnapshot(s => {
                         const data = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => new Date(b.fechaArmado||0) - new Date(a.fechaArmado||0));
                         const prev = prevKitsEntregadoRef.current;
+                        const prevNoEnt = prevKitsNoEntregadoRef.current;
                         if (prev !== null) {
                             data.forEach(kit => {
                                 const fe = (kit.fechaEntregaKit || '').toString().trim();
@@ -2858,9 +3302,19 @@
                                 if (fe && fe !== 'undefined' && fe !== 'null' && !had) {
                                     try { const a = new Audio('./alertaentrega.mp3'); a.volume = 1; a.play().catch(() => {}); } catch (_) {}
                                 }
+                                const isNoEnt = (kit.resultadoEntrega === 'no_entregado') || (kit.estadoRuta === 'no_entregado') || (kit.confirmacionManana === 'no_lo_llevo');
+                                const hadNoEnt = !!(prevNoEnt && prevNoEnt[kit.id]);
+                                if (isNoEnt && !hadNoEnt) {
+                                    const n = { id: Date.now() + Math.floor(Math.random() * 1000), paciente: kit.nombre || '—', dni: kit.dni || '—', ts: new Date().toISOString(), tipo: 'no_entregado', origen: kit.observacionNoEntrega || kit.motivoNoLoLlevo || 'No entregado en ruta' };
+                                    setNotifications(prevN => [n, ...prevN].slice(0, 50));
+                                    setFloatingNotifications(prevN => [...prevN, n]);
+                                    setTimeout(() => setFloatingNotifications(prevN => prevN.filter(x => x.id !== n.id)), 30000);
+                                    try { const a2 = new Audio('./devolucion.mp3'); a2.volume = 1; a2.play().catch(() => {}); } catch (_) {}
+                                }
                             });
                         }
                         prevKitsEntregadoRef.current = Object.fromEntries(data.map(k => [k.id, (k.fechaEntregaKit || '').toString().trim()]));
+                        prevKitsNoEntregadoRef.current = Object.fromEntries(data.map(k => [k.id, ((k.resultadoEntrega === 'no_entregado') || (k.estadoRuta === 'no_entregado') || (k.confirmacionManana === 'no_lo_llevo'))]));
                         setKits(data);
                         cacheManager.saveKits(data);
                     });
@@ -2972,7 +3426,12 @@
             const { canViewReports, canViewConfig } = permissions;
 
             const currentUserForBlocks = { name: userName, role: role, ...(currentUserData || {}) };
+            const currentRolesNorm = ((currentUserData?.rolesDepartamento) || []).map(r => (r || '').toString().trim().toLowerCase());
+            const isMotoristaUser = currentRolesNorm.includes('motorista');
             const stats = { totalKits: kits.length, todayKits: kits.filter(k => k.fechaArmado === new Date().toISOString().split('T')[0]).length };
+            useEffect(() => {
+                if (isMotoristaUser && view !== 'motoristaRuta') setView('motoristaRuta');
+            }, [isMotoristaUser, view]);
 
             const NavItem = ({ id, label, icon: Icon }) => {
                 if (!Icon || typeof Icon !== 'function') return null;
@@ -3009,14 +3468,20 @@
                                 </button>
                             </div>
                             <div className="p-6 space-y-1 overflow-y-auto flex-1">
-                            <NavItem id="dashboard" label="Dashboard" icon={Icons.LayoutDashboard} />
-                            <NavItem id="logistica" label="Lista de espera" icon={Icons.Truck} />
-                            <NavItem id="pacientesLogistica" label="Gestión de Pacientes" icon={Icons.Users} />
-                            <NavItem id="calendarioLogistica" label="Calendario Logística" icon={Icons.Calendar} />
-                                <NavItem id="busquedaRegistro" label="Búsqueda registro" icon={Icons.Search} />
-                                {canViewReports && <button onClick={()=>{ setMobileMenuOpen(false); setView('reports'); }} className="w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl hover:bg-turquoise-800/50 text-turquoise-300 font-bold btn-hover-effect touch-manipulation"><Icons.List size={20}/> <span>Bitácora entregados</span></button>}
-                                {canViewConfig && <button onClick={()=>window.location.href='index.html'} className="w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl hover:bg-turquoise-800/50 text-turquoise-300 font-bold btn-hover-effect touch-manipulation"><Icons.Settings size={20}/> <span>Configuración</span></button>}
-                                {canViewConfig && <button onClick={()=>window.location.href='index.html'} className="w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl hover:bg-turquoise-800/50 text-turquoise-300 font-bold btn-hover-effect touch-manipulation"><Icons.UserCog size={20}/> <span>Usuarios</span></button>}
+                                {isMotoristaUser ? (
+                                    <NavItem id="motoristaRuta" label="Mi Ruta del Día" icon={Icons.Truck} />
+                                ) : (
+                                    <>
+                                        <NavItem id="dashboard" label="Dashboard" icon={Icons.LayoutDashboard} />
+                                        <NavItem id="logistica" label="Lista de espera" icon={Icons.Truck} />
+                                        <NavItem id="pacientesLogistica" label="Gestión de Pacientes" icon={Icons.Users} />
+                                        <NavItem id="calendarioLogistica" label="Calendario Logística" icon={Icons.Calendar} />
+                                        <NavItem id="busquedaRegistro" label="Búsqueda registro" icon={Icons.Search} />
+                                        {canViewReports && <button onClick={()=>{ setMobileMenuOpen(false); setView('reports'); }} className="w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl hover:bg-turquoise-800/50 text-turquoise-300 font-bold btn-hover-effect touch-manipulation"><Icons.List size={20}/> <span>Bitácora entregados</span></button>}
+                                        {canViewConfig && <button onClick={()=>window.location.href='index.html'} className="w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl hover:bg-turquoise-800/50 text-turquoise-300 font-bold btn-hover-effect touch-manipulation"><Icons.Settings size={20}/> <span>Configuración</span></button>}
+                                        {canViewConfig && <button onClick={()=>window.location.href='index.html'} className="w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl hover:bg-turquoise-800/50 text-turquoise-300 font-bold btn-hover-effect touch-manipulation"><Icons.UserCog size={20}/> <span>Usuarios</span></button>}
+                                    </>
+                                )}
                                 <div className="pt-6 mt-4 border-t border-turquoise-800">
                                     <button onClick={handleLogout} className="w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl bg-turquoise-800 text-white font-bold btn-hover-effect touch-manipulation">
                                         <Icons.LogOut size={20}/> Cerrar sesión
@@ -3048,14 +3513,20 @@
                             <div className="text-xs font-bold text-turquoise-400 uppercase tracking-widest pl-14 mb-4 animate-in">A TU CASA</div>
                         )}
                         <nav className="flex-1 px-4 py-4 space-y-2 relative z-10 overflow-y-auto overflow-x-hidden">
-                            <NavItem id="dashboard" label="Dashboard" icon={Icons.LayoutDashboard} />
-                            <NavItem id="logistica" label="Lista de espera" icon={Icons.Truck} />
-                            <NavItem id="pacientesLogistica" label="Gestión de Pacientes" icon={Icons.Users} />
-                            <NavItem id="calendarioLogistica" label="Calendario Logística" icon={Icons.Calendar} />
-                            <NavItem id="busquedaRegistro" label="Búsqueda registro" icon={Icons.Search} />
-                            {canViewReports && <button onClick={()=>setView('reports')} className={`w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl transition-all font-bold group relative overflow-hidden btn-hover-effect touch-manipulation hover:bg-turquoise-800/50 text-turquoise-300 ${sidebarCollapsed ? 'justify-center' : ''}`}><Icons.List size={20}/> <span className={sidebarCollapsed ? 'hidden' : ''}>Bitácora entregados</span></button>}
-                            {canViewConfig && <button onClick={()=>window.location.href='index.html'} className={`w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl transition-all font-bold group relative overflow-hidden btn-hover-effect touch-manipulation hover:bg-turquoise-800/50 text-turquoise-300 ${sidebarCollapsed ? 'justify-center' : ''}`}><Icons.Settings size={20}/> <span className={sidebarCollapsed ? 'hidden' : ''}>Configuración</span></button>}
-                            {canViewConfig && <button onClick={()=>window.location.href='index.html'} className={`w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl transition-all font-bold group relative overflow-hidden btn-hover-effect touch-manipulation hover:bg-turquoise-800/50 text-turquoise-300 ${sidebarCollapsed ? 'justify-center' : ''}`}><Icons.UserCog size={20}/> <span className={sidebarCollapsed ? 'hidden' : ''}>Usuarios</span></button>}
+                            {isMotoristaUser ? (
+                                <NavItem id="motoristaRuta" label="Mi Ruta del Día" icon={Icons.Truck} />
+                            ) : (
+                                <>
+                                    <NavItem id="dashboard" label="Dashboard" icon={Icons.LayoutDashboard} />
+                                    <NavItem id="logistica" label="Lista de espera" icon={Icons.Truck} />
+                                    <NavItem id="pacientesLogistica" label="Gestión de Pacientes" icon={Icons.Users} />
+                                    <NavItem id="calendarioLogistica" label="Calendario Logística" icon={Icons.Calendar} />
+                                    <NavItem id="busquedaRegistro" label="Búsqueda registro" icon={Icons.Search} />
+                                    {canViewReports && <button onClick={()=>setView('reports')} className={`w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl transition-all font-bold group relative overflow-hidden btn-hover-effect touch-manipulation hover:bg-turquoise-800/50 text-turquoise-300 ${sidebarCollapsed ? 'justify-center' : ''}`}><Icons.List size={20}/> <span className={sidebarCollapsed ? 'hidden' : ''}>Bitácora entregados</span></button>}
+                                    {canViewConfig && <button onClick={()=>window.location.href='index.html'} className={`w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl transition-all font-bold group relative overflow-hidden btn-hover-effect touch-manipulation hover:bg-turquoise-800/50 text-turquoise-300 ${sidebarCollapsed ? 'justify-center' : ''}`}><Icons.Settings size={20}/> <span className={sidebarCollapsed ? 'hidden' : ''}>Configuración</span></button>}
+                                    {canViewConfig && <button onClick={()=>window.location.href='index.html'} className={`w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl transition-all font-bold group relative overflow-hidden btn-hover-effect touch-manipulation hover:bg-turquoise-800/50 text-turquoise-300 ${sidebarCollapsed ? 'justify-center' : ''}`}><Icons.UserCog size={20}/> <span className={sidebarCollapsed ? 'hidden' : ''}>Usuarios</span></button>}
+                                </>
+                            )}
                         </nav>
                         <div className="p-4 mx-4 mb-4 rounded-2xl bg-turquoise-800/50 border border-turquoise-700/50 relative z-10">
                             <div className={`flex items-center gap-3 mb-4 ${sidebarCollapsed ? 'justify-center flex-col' : ''}`}>
@@ -3084,11 +3555,14 @@
                             <div className="w-10 shrink-0" aria-hidden="true"></div>
                         </header>
                         <div className="mobile-content-area flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth relative z-10 min-w-0 mobile-content-pt">
-                            {view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} kits={kits} currentUser={currentUserForBlocks} permissions={permissions} notifications={notifications} notificationsToday={notificationsToday} notificationPanelOpen={notificationPanelOpen} setNotificationPanelOpen={setNotificationPanelOpen} floatingNotifications={floatingNotifications} />}
-                            {['logistica','despachoLogisticaVentanilla','despachoLogisticaRuta'].includes(view) && (
+                            {!isMotoristaUser && view === 'dashboard' && <DashboardBlock setView={setView} stats={stats} userName={userName} role={role} kits={kits} currentUser={currentUserForBlocks} permissions={permissions} notifications={notifications} notificationsToday={notificationsToday} notificationPanelOpen={notificationPanelOpen} setNotificationPanelOpen={setNotificationPanelOpen} floatingNotifications={floatingNotifications} />}
+                            {view === 'motoristaRuta' && (
+                                <MotoristaRutaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserData} onRefreshKits={refetchKits} />
+                            )}
+                            {!isMotoristaUser && ['logistica','despachoLogisticaVentanilla','despachoLogisticaRuta'].includes(view) && (
                                 <LogisticaListaEsperaBlock kits={kits} patients={patients} onSaveKit={saveKit} onRefreshKits={refetchKits} currentUser={currentUserData} initialView={view} users={users} role={role} db={db} firebaseInitialized={firebaseInitialized} />
                             )}
-                            {view === 'pacientesLogistica' && (
+                            {!isMotoristaUser && view === 'pacientesLogistica' && (
                                 <GestionPacientesLogisticaBlock
                                     patients={patients}
                                     kits={kits}
@@ -3098,15 +3572,15 @@
                                     onRefreshPatients={loadPatients}
                                 />
                             )}
-                            {view === 'calendarioLogistica' && (
+                            {!isMotoristaUser && view === 'calendarioLogistica' && (
                                 <CalendarioLogisticaBlock
                                     kits={kits}
                                     patients={patients}
                                     onRefreshKits={refetchKits}
                                 />
                             )}
-                            {view === 'reports' && <ReportesBitacoraBlock kits={kits} patients={patients} />}
-                            {view === 'busquedaRegistro' && <BusquedaErrorBoundary><BusquedaRegistroBlock qrData={busquedaQrData} qrHeaders={busquedaQrHeaders} loading={busquedaQrLoading} error={busquedaQrError} /></BusquedaErrorBoundary>}
+                            {!isMotoristaUser && view === 'reports' && <ReportesBitacoraBlock kits={kits} patients={patients} />}
+                            {!isMotoristaUser && view === 'busquedaRegistro' && <BusquedaErrorBoundary><BusquedaRegistroBlock qrData={busquedaQrData} qrHeaders={busquedaQrHeaders} loading={busquedaQrLoading} error={busquedaQrError} /></BusquedaErrorBoundary>}
                             {['config','users'].includes(view) && <RedirectToIndex />}
                         </div>
                     </main>
