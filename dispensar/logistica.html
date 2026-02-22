@@ -2997,18 +2997,26 @@
                     </body>
                     </html>
                 `;
-                const win = window.open('', '_blank', 'noopener,noreferrer');
-                if (!win) {
-                    alert('No se pudo abrir la ventana de impresión. Verifica bloqueadores de ventanas emergentes.');
-                    return;
+                try {
+                    const iframe = document.createElement('iframe');
+                    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;opacity:0;pointer-events:none;';
+                    document.body.appendChild(iframe);
+                    const doc = iframe.contentDocument || iframe.contentWindow.document;
+                    doc.open();
+                    doc.write(html);
+                    doc.close();
+                    setTimeout(() => {
+                        try {
+                            iframe.contentWindow.focus();
+                            iframe.contentWindow.print();
+                        } catch (_) {}
+                        setTimeout(() => {
+                            try { document.body.removeChild(iframe); } catch (_) {}
+                        }, 2000);
+                    }, 250);
+                } catch (e) {
+                    alert('No se pudo iniciar la impresión: ' + (e?.message || e));
                 }
-                win.document.open();
-                win.document.write(html);
-                win.document.close();
-                win.focus();
-                setTimeout(() => {
-                    win.print();
-                }, 250);
             };
 
             return (
