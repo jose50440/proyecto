@@ -2980,8 +2980,12 @@
                     oficio: { label: 'Oficio (HN)', page: '8.5in 13in' }
                 };
                 const selectedPaper = paperMap[printPaper] || paperMap.carta;
+                const isFilaRefrigerada = (tipo) => {
+                    const t = (tipo || '').toString().trim().toLowerCase();
+                    return t === 'solo refrigerado' || t === 'kit + refrigerado' || t === 'kit+refrigerado';
+                };
                 const rowsHtml = rowsBase.map((r, i) => `
-                    <tr>
+                    <tr class="${isFilaRefrigerada(r.tipo) ? 'row-refrigerado' : ''}">
                         <td>${i + 1}</td>
                         <td>${r.dni}</td>
                         <td>${r.derechohabiente}</td>
@@ -3012,6 +3016,7 @@
                         border-color: #0b1220;
                     }
                     tbody tr:nth-child(even) { background: #f8fafc; }
+                    tbody tr.row-refrigerado td { font-weight: 700; }
                     th:nth-child(1), td:nth-child(1) { width: 5%; }
                     th:nth-child(2), td:nth-child(2) { width: 11%; }
                     th:nth-child(3), td:nth-child(3) { width: 22%; }
