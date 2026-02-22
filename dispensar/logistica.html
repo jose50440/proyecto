@@ -1129,6 +1129,9 @@
                     alert('Error al imprimir: ' + (e?.message || e));
                 }
             };
+            if (typeof window !== 'undefined') {
+                window.printHtmlWithIframe = printHtmlWithIframe;
+            }
 
             // Misma lógica y plantillas que Operaciones (index): usa print-vinetas.js compartido
             const printVinietaLogistica = (kit, tipo) => {
@@ -2927,6 +2930,9 @@
                     alert('Error al imprimir: ' + (e?.message || e));
                 }
             };
+            if (typeof window !== 'undefined') {
+                window.printHtmlWithIframe = printHtmlWithIframe;
+            }
 
             const descargarRutaExcel = async () => {
                 if (!selectedDay) return;
@@ -3023,7 +3029,15 @@
                         <tbody>${rowsHtml}</tbody>
                     </table>
                 `;
-                printHtmlWithIframe(`Programación Ruta ${selectedDay}`, css, bodyHtml);
+                const printFn =
+                    (typeof printHtmlWithIframe === 'function' && printHtmlWithIframe) ||
+                    (typeof window !== 'undefined' && typeof window.printHtmlWithIframe === 'function' && window.printHtmlWithIframe) ||
+                    null;
+                if (!printFn) {
+                    alert('No se pudo inicializar la función de impresión.');
+                    return;
+                }
+                printFn(`Programación Ruta ${selectedDay}`, css, bodyHtml);
             };
 
             return (
