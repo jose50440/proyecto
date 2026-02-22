@@ -2906,6 +2906,28 @@
                     .sort((a, b) => a.carteroAsignado.localeCompare(b.carteroAsignado, 'es') || a.derechohabiente.localeCompare(b.derechohabiente, 'es'));
             };
 
+            const printHtmlWithIframe = (title, css, bodyHtml) => {
+                const _esc = (s) => { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+                try {
+                    const iframe = document.createElement('iframe');
+                    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none';
+                    document.body.appendChild(iframe);
+                    const doc = iframe.contentDocument || iframe.contentWindow.document;
+                    doc.open();
+                    doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+_esc(title)+'</title><style>'+css+'</style></head><body>'+bodyHtml+'</body></html>');
+                    doc.close();
+                    setTimeout(() => {
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                        setTimeout(() => {
+                            try { document.body.removeChild(iframe); } catch (_) {}
+                        }, 2000);
+                    }, 250);
+                } catch (e) {
+                    alert('Error al imprimir: ' + (e?.message || e));
+                }
+            };
+
             const descargarRutaExcel = async () => {
                 if (!selectedDay) return;
                 try {
