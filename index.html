@@ -1240,13 +1240,27 @@
             );
         };
 
+        const hashPin = async (user, pin) => {
+            const key = ((user||'').toLowerCase().trim()) + '|' + (pin||'');
+            const enc = new TextEncoder().encode(key);
+            const buf = await crypto.subtle.digest('SHA-256', enc);
+            return btoa(String.fromCharCode(...new Uint8Array(buf)));
+        };
+
         const LoginBlock = ({ onLogin }) => {
-            const [username, setUsername] = useState(''); 
+            const [username, setUsername] = useState(() => localStorage.getItem('leq_remember_username') || ''); 
             const [password, setPassword] = useState(''); 
             const [loading, setLoading] = useState(false); 
             const [error, setError] = useState('');
             const [isOnline, setIsOnline] = useState(navigator.onLine);
             const [firebaseStatus, setFirebaseStatus] = useState('Conectando...');
+            const [rememberUser, setRememberUser] = useState(false);
+            const [usePinInput, setUsePinInput] = useState(() => !!localStorage.getItem('leq_remember_has_pin'));
+            const [pinValue, setPinValue] = useState('');
+            const [showSetPinModal, setShowSetPinModal] = useState(false);
+            const [pinToSet, setPinToSet] = useState('');
+            const [pinConfirm, setPinConfirm] = useState('');
+            const [pendingLoginData, setPendingLoginData] = useState(null);
 
             useEffect(() => {
                 const handleOnline = () => setIsOnline(true);
@@ -1441,13 +1455,13 @@
                                     .catch(err => console.error('Error actualizando rol:', err));
                             }
                             
-                            // Pasar información completa del usuario incluyendo departamento y roles
-                            onLogin(calculatedRole, userData.nombre || userData.username, {
-                                id: querySnapshot.docs[0].id,
-                                ...userData,
-                                role: calculatedRole // Asegurar que el rol esté actualizado
-                            });
-                            try { if (typeof PasswordCredential !== 'undefined' && navigator.credentials) { const cred = new PasswordCredential({ id: userKey, password: passVal }); await navigator.credentials.store(cred); } } catch (_) {}
+                            const loginPayload = { id: querySnapshot.docs[0].id, ...userData, role: calculatedRole };
+                            if (rememberUser) {
+                                setPendingLoginData({ role: calculatedRole, nombre: userData.nombre || userData.username, userData: loginPayload });
+                                setShowSetPinModal(true);
+                            } else {
+                                onLogin(calculatedRole, userData.nombre || userData.username, loginPayload);
+                            }
                         } else { 
                             setError("Contraseña incorrecta."); 
                             setLoading(false); 
@@ -1474,17 +1488,107 @@
                     setLoading(false); 
                 }
             };
-            
-            const handleLogin = async (e) => { e.preventDefault(); await performLogin(); };
-            
-            const tryBiometric = async () => {
-                if (!navigator.credentials || typeof PasswordCredential === 'undefined') return;
+
+            const performLoginWithPin = async () => {
+                const userVal = (username || '').trim().toLowerCase();
+                if (!userVal || !pinValue || pinValue.length !== 4) {
+                    setError('Ingrese su PIN de 4 dígitos.');
+                    return;
+                }
+                setError('');
+                setLoading(true);
                 try {
-                    const cred = await navigator.credentials.get({ password: true, mediation: 'optional' });
-                    if (cred && cred.id && cred.password) await performLogin(cred.id, cred.password);
-                } catch (_) {}
+                    if (!firebaseInitialized || !db) {
+                        setError('Base de datos no disponible.');
+                        setLoading(false);
+                        return;
+                    }
+                    const querySnapshot = await db.collection('prod_users').where('username', '==', userVal).get();
+                    if (querySnapshot.empty) {
+                        setError('Usuario no encontrado.');
+                        setLoading(false);
+                        return;
+                    }
+                    const userData = querySnapshot.docs[0].data();
+                    const docId = querySnapshot.docs[0].id;
+                    const storedHash = userData.pin_hash || '';
+                    const enteredHash = await hashPin(userVal, pinValue);
+                    if (enteredHash !== storedHash) {
+                        setError('PIN incorrecto.');
+                        setLoading(false);
+                        return;
+                    }
+                    if (userData.restriccionHorario) {
+                        const ahora = new Date();
+                        const diaActual = ahora.getDay();
+                        const horaActual = ahora.getHours() * 100 + ahora.getMinutes();
+                        const diasMap = { 0:'domingo',1:'lunes',2:'martes',3:'miercoles',4:'jueves',5:'viernes',6:'sabado' };
+                        const diaNombre = diasMap[diaActual];
+                        const diasPermitidos = userData.diasPermitidos || {};
+                        if (!diasPermitidos[diaNombre]) {
+                            const labels = { domingo:'Domingo',lunes:'Lunes',martes:'Martes',miercoles:'Miércoles',jueves:'Jueves',viernes:'Viernes',sabado:'Sábado' };
+                            setError('Acceso denegado este día.');
+                            setLoading(false);
+                            return;
+                        }
+                        if (userData.horaInicio && userData.horaFin) {
+                            const [hInicio, mInicio] = userData.horaInicio.split(':').map(Number);
+                            const [hFin, mFin] = userData.horaFin.split(':').map(Number);
+                            const horaInicio = hInicio * 100 + mInicio, horaFin = hFin * 100 + mFin;
+                            if (horaActual < horaInicio || horaActual > horaFin) {
+                                setError('Fuera del horario permitido.');
+                                setLoading(false);
+                                return;
+                            }
+                        }
+                    }
+                    const getSystemRoleFromRoles = (roles) => {
+                        if (!roles || roles.length === 0) return 'digitador';
+                        if (roles.includes('superadmin')) return 'superadmin';
+                        if (roles.includes('admin')) return 'admin';
+                        if (roles.some(r => r.includes('supervisor'))) return 'supervisor';
+                        return 'digitador';
+                    };
+                    const calculatedRole = userData.rolesDepartamento && userData.rolesDepartamento.length > 0
+                        ? getSystemRoleFromRoles(userData.rolesDepartamento) : (userData.role || 'digitador');
+                    onLogin(calculatedRole, userData.nombre || userData.username, { id: docId, ...userData, role: calculatedRole });
+                } catch (err) {
+                    setError(err?.message || 'Error al verificar PIN.');
+                }
+                setLoading(false);
             };
-            const canBiometric = typeof navigator !== 'undefined' && navigator.credentials && typeof PasswordCredential !== 'undefined';
+
+            const handleConfirmSetPin = async () => {
+                if (!pinToSet || pinToSet.length !== 4) { alert('El PIN debe tener 4 dígitos.'); return; }
+                if (pinToSet !== pinConfirm) { alert('Los PIN no coinciden.'); return; }
+                if (!pendingLoginData || !firebaseInitialized || !db) return;
+                try {
+                    const userKey = (username || '').trim().toLowerCase();
+                    const hashed = await hashPin(userKey, pinToSet);
+                    const querySnapshot = await db.collection('prod_users').where('username', '==', userKey).get();
+                    if (!querySnapshot.empty) {
+                        await db.collection('prod_users').doc(querySnapshot.docs[0].id).update({ pin_hash: hashed });
+                    }
+                    localStorage.setItem('leq_remember_username', userKey);
+                    localStorage.setItem('leq_remember_has_pin', '1');
+                    setShowSetPinModal(false);
+                    setPinToSet('');
+                    setPinConfirm('');
+                    onLogin(pendingLoginData.role, pendingLoginData.nombre, pendingLoginData.userData);
+                    setPendingLoginData(null);
+                } catch (e) {
+                    alert('Error al guardar PIN: ' + (e?.message || e));
+                }
+            };
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                if (usePinInput && (localStorage.getItem('leq_remember_username') || '').trim()) {
+                    await performLoginWithPin();
+                } else {
+                    await performLogin();
+                }
+            };
             
             return (
                 <div className="login-page h-screen min-h-0 min-w-0 flex flex-col md:flex-row items-center justify-center md:justify-center gap-6 md:gap-12 p-4 md:p-8 relative overflow-y-auto overflow-x-hidden overscroll-y-auto" style={{ background: 'linear-gradient(165deg, #f0fdfa 0%, #e0f2f1 25%, #f0fdf4 50%, #e8f5e9 75%, #ccfbf1 100%)' }}>
@@ -1558,18 +1662,50 @@
                                             required 
                                         />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-2" style={{ color: '#0f766e' }}>Contraseña</label>
-                                        <input 
-                                            type="password" 
-                                            className="w-full min-h-[44px] px-4 py-3.5 rounded-xl outline-none focus:ring-2 focus:ring-teal-400/60 focus:border-teal-400 transition-all text-slate-800 placeholder:text-slate-400 border"
-                                            style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}
-                                            placeholder="••••••••"
-                                            value={password} 
-                                            onChange={(e) => setPassword(e.target.value)} 
-                                            required 
-                                        />
-                                    </div>
+                                    {(usePinInput && localStorage.getItem('leq_remember_username')) ? (
+                                        <>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <button type="button" onClick={() => setUsePinInput(true)} className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${usePinInput ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600'}`}>PIN</button>
+                                                <button type="button" onClick={() => setUsePinInput(false)} className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${!usePinInput ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600'}`}>Contraseña</button>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-semibold mb-2" style={{ color: '#0f766e' }}>PIN de 4 dígitos</label>
+                                                <input 
+                                                    type="password" 
+                                                    inputMode="numeric"
+                                                    pattern="[0-9]*"
+                                                    maxLength={4}
+                                                    className="w-full min-h-[44px] px-4 py-3.5 rounded-xl outline-none focus:ring-2 focus:ring-teal-400/60 focus:border-teal-400 transition-all text-slate-800 placeholder:text-slate-400 border text-center text-xl tracking-widest"
+                                                    style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}
+                                                    placeholder="••••"
+                                                    value={pinValue} 
+                                                    onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 4); setPinValue(v); setError(''); }} 
+                                                />
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-2" style={{ color: '#0f766e' }}>Contraseña</label>
+                                            <input 
+                                                type="password" 
+                                                className="w-full min-h-[44px] px-4 py-3.5 rounded-xl outline-none focus:ring-2 focus:ring-teal-400/60 focus:border-teal-400 transition-all text-slate-800 placeholder:text-slate-400 border"
+                                                style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}
+                                                placeholder="••••••••"
+                                                value={password} 
+                                                onChange={(e) => setPassword(e.target.value)} 
+                                                required 
+                                            />
+                                            {localStorage.getItem('leq_remember_username') && (
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <button type="button" onClick={() => setUsePinInput(true)} className="text-xs font-semibold text-teal-600 hover:text-teal-700">Usar PIN</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" checked={rememberUser} onChange={(e) => setRememberUser(e.target.checked)} className="rounded border-teal-400 text-teal-600 focus:ring-teal-500" />
+                                        <span className="text-sm font-medium text-slate-700">Recordar usuario con PIN (inicio rápido)</span>
+                                    </label>
                                     <button 
                                         type="submit" 
                                         disabled={loading} 
@@ -1578,11 +1714,6 @@
                                     >
                                         {loading ? 'Verificando...' : 'Iniciar Sesión'}
                                     </button>
-                                    {canBiometric && (
-                                        <button type="button" onClick={tryBiometric} disabled={loading} className="w-full mt-3 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 border-2 border-teal-300 text-teal-700 hover:bg-teal-50 disabled:opacity-50 transition-colors">
-                                            <Icons.UserCheck size={18}/> Usar Face ID / Huella
-                                        </button>
-                                    )}
                                 </form>
                             </div>
                         </div>
@@ -1590,6 +1721,24 @@
 
                     {/* Espacio derecho para balance visual (login centrado) */}
                     <div className="hidden md:flex flex-1 min-w-0 max-w-xl flex-shrink order-last" aria-hidden="true" />
+
+                    {/* Modal configurar PIN (Recordar usuario) */}
+                    {showSetPinModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => {}}>
+                            <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
+                                <h3 className="text-lg font-bold text-slate-800 mb-2">Configurar PIN de 4 dígitos</h3>
+                                <p className="text-sm text-slate-600 mb-4">Usa este PIN para iniciar sesión más rápido la próxima vez.</p>
+                                <div className="space-y-3">
+                                    <input type="password" inputMode="numeric" maxLength={4} placeholder="PIN (4 dígitos)" value={pinToSet} onChange={e => setPinToSet(e.target.value.replace(/\D/g, '').slice(0, 4))} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-center text-xl tracking-widest outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500" />
+                                    <input type="password" inputMode="numeric" maxLength={4} placeholder="Confirmar PIN" value={pinConfirm} onChange={e => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-center text-xl tracking-widest outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500" />
+                                </div>
+                                <div className="flex gap-3 mt-6">
+                                    <button type="button" onClick={() => { const d = pendingLoginData; setShowSetPinModal(false); setPendingLoginData(null); if (d) onLogin(d.role, d.nombre, d.userData); }} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50">Omitir</button>
+                                    <button type="button" onClick={handleConfirmSetPin} className="flex-1 py-2.5 rounded-xl bg-teal-600 text-white font-semibold hover:bg-teal-700">Guardar y continuar</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -12259,7 +12408,9 @@ html +
                 },
                 horaInicio: '08:00',
                 horaFin: '18:00',
-                telefono: ''
+                telefono: '',
+                pinAdmin: '',
+                clearPin: false
             });
             const [showModal, setShowModal] = useState(false);
             const [editingId, setEditingId] = useState(null);
@@ -12331,7 +12482,9 @@ html +
                     },
                     horaInicio: '08:00',
                     horaFin: '18:00',
-                    telefono: ''
+                    telefono: '',
+                    pinAdmin: '',
+                    clearPin: false
                 }); 
                 setShowModal(true); 
             };
@@ -12357,7 +12510,9 @@ html +
                     },
                     horaInicio: toTimeInputValue(u.horaInicio) || '08:00',
                     horaFin: toTimeInputValue(u.horaFin) || '18:00',
-                    telefono: u.telefono || ''
+                    telefono: u.telefono || '',
+                    pinAdmin: '',
+                    clearPin: false
                 }); 
                 setShowModal(true); 
             };
@@ -12515,7 +12670,15 @@ html +
                         // Editar usuario - solo incluir password si se proporcionó uno nuevo
                         uData.password = formData.password;
                     }
-                    // Si editingId existe y no hay password, no se incluye en uData (mantiene la contraseña actual)
+                    // PIN: admin puede cambiar o limpiar
+                    if (editingId) {
+                        if (formData.clearPin) {
+                            uData.pin_hash = null;
+                        } else if (formData.pinAdmin && formData.pinAdmin.length === 4) {
+                            const hashed = await hashPin(formData.username, formData.pinAdmin);
+                            uData.pin_hash = hashed;
+                        }
+                    }
                     
                     console.log('💾 Guardando usuario con rol del sistema:', systemRole, 'Roles departamento:', formData.rolesDepartamento);
                     
@@ -12582,6 +12745,27 @@ html +
                                     required={!editingId} 
                                 />
                             </div>
+                            {editingId && (
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">PIN Recordar usuario (4 dígitos)</label>
+                                    <div className="flex gap-2 items-center">
+                                        <input 
+                                            type="password" 
+                                            inputMode="numeric"
+                                            maxLength={4}
+                                            className="flex-1 p-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-turquoise-500" 
+                                            value={formData.pinAdmin} 
+                                            onChange={e=>setFormData({...formData, pinAdmin:e.target.value.replace(/\D/g,'').slice(0,4), clearPin: false})} 
+                                            placeholder="Nuevo PIN o vacío para mantener" 
+                                        />
+                                        <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
+                                            <input type="checkbox" checked={formData.clearPin} onChange={e=>setFormData({...formData, clearPin:e.target.checked, pinAdmin:''})} className="rounded border-slate-300 text-red-600" />
+                                            <span className="text-xs font-medium text-slate-600">Limpiar PIN</span>
+                                        </label>
+                                    </div>
+                                    <p className="text-[10px] text-slate-500 mt-1">El admin puede cambiar o borrar el PIN de inicio rápido del usuario.</p>
+                                </div>
+                            )}
                             <div>
                                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Departamento</label>
                                 <select 
@@ -14521,7 +14705,8 @@ Responde en formato JSON con esta estructura:
                     const roles = (userData?.rolesDepartamento || []).map(x => (x || '').toLowerCase().trim());
                     const isLogistica = dep === 'logistica' && (roles.includes('asignador de rutas despacho logistica') || roles.includes('supervisor'));
                     const isDelivery = dep === 'delivery' && (roles.includes('motorista') || roles.includes('supervisor'));
-                    if (isLogistica || isDelivery) window.location.href = 'logistica.html';
+                    if (isLogistica) window.location.href = 'logistica.html';
+                    if (isDelivery) window.location.href = 'motorista.html';
                 } catch (_) {}
             }, [role]);
 
