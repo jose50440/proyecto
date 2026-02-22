@@ -1108,6 +1108,28 @@
                     .map(u => ({ id: u.id, nombre: (u.nombre||u.username||'').trim() })).filter(u => u.nombre);
             }, [users]);
 
+            const printHtmlWithIframe = (title, css, bodyHtml) => {
+                const _esc = (s) => { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+                try {
+                    const iframe = document.createElement('iframe');
+                    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none';
+                    document.body.appendChild(iframe);
+                    const doc = iframe.contentDocument || iframe.contentWindow.document;
+                    doc.open();
+                    doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+_esc(title)+'</title><style>'+css+'</style></head><body>'+bodyHtml+'</body></html>');
+                    doc.close();
+                    setTimeout(() => {
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                        setTimeout(() => {
+                            try { document.body.removeChild(iframe); } catch (_) {}
+                        }, 2000);
+                    }, 250);
+                } catch (e) {
+                    alert('Error al imprimir: ' + (e?.message || e));
+                }
+            };
+
             // Misma lógica y plantillas que Operaciones (index): usa print-vinetas.js compartido
             const printVinietaLogistica = (kit, tipo) => {
                 const pt = (patients||[]).find(p => p.id===kit.patientId || (p.dni&&kit.dni&&String(p.dni).trim()===String(kit.dni).trim()));
@@ -1135,16 +1157,7 @@
                         css = '@page{size:71mm 165mm;margin:10mm 0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:71mm;min-height:145mm;font-family:Arial,sans-serif;text-transform:uppercase;background:#fff;-webkit-print-color-adjust:exact;}.sheet{padding:2mm;}.v-box{border:0.5mm solid #000;padding:2mm;margin-bottom:2mm;font-size:2.8mm;}.v-title{text-align:center;font-weight:bold;margin-bottom:3mm;}';
                         html = '<div class="sheet"><div class="v-title">DEPARTAMENTO DISPENSACIÓN A DOMICILIO</div><div class="v-box">'+_esc(nombre)+'</div><div class="v-box">DNI: '+_esc(dni)+'</div><div class="v-box">FECHA: '+_esc(fe)+'</div><div class="v-box">CC: '+_esc(cc)+'</div><div class="v-box">MEDS: '+_esc(cnt)+'</div><div class="v-box">VENTANILLA</div>'+(obs?'<div class="v-box">'+_esc(obs)+'</div>':'')+'</div>';
                     }
-                    try {
-                        const iframe = document.createElement('iframe');
-                        iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none';
-                        document.body.appendChild(iframe);
-                        const doc = iframe.contentDocument || iframe.contentWindow.document;
-                        doc.open();
-                        doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+_esc(title)+'</title><style>'+css+'</style></head><body>'+html+'</body></html>');
-                        doc.close();
-                        setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 2000); }, 250);
-                    } catch (e) { alert('Error al imprimir: ' + (e?.message || e)); }
+                    printHtmlWithIframe(title, css, html);
                 }
             };
 
@@ -2952,71 +2965,43 @@
                         <td>&nbsp;</td>
                     </tr>
                 `).join('');
-                const html = `
-                    <!doctype html>
-                    <html>
-                    <head>
-                        <meta charset="utf-8" />
-                        <title>Programación Ruta ${selectedDay}</title>
-                        <style>
-                            @page { size: ${selectedPaper.page}; margin: 10mm; }
-                            body { font-family: Arial, sans-serif; margin: 0; color: #111827; }
-                            h1 { font-size: 16px; margin: 0 0 6px; }
-                            .meta { font-size: 12px; margin-bottom: 10px; color: #374151; }
-                            table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-                            th, td { border: 1px solid #111827; font-size: 10px; padding: 6px 4px; vertical-align: middle; word-wrap: break-word; }
-                            th { background: #111827; color: #fff; text-transform: uppercase; font-weight: 700; }
-                            th:nth-child(1), td:nth-child(1) { width: 5%; text-align: center; }
-                            th:nth-child(2), td:nth-child(2) { width: 11%; }
-                            th:nth-child(3), td:nth-child(3) { width: 22%; }
-                            th:nth-child(4), td:nth-child(4) { width: 15%; }
-                            th:nth-child(5), td:nth-child(5) { width: 10%; }
-                            th:nth-child(6), td:nth-child(6) { width: 20%; }
-                            th:nth-child(7), td:nth-child(7) { width: 12%; }
-                            th:nth-child(8), td:nth-child(8) { width: 10%; }
-                        </style>
-                    </head>
-                    <body>
-                        <h1>Programación de Ruta — ${dateLabel}</h1>
-                        <div class="meta">Formato: ${selectedPaper.label} | Total registros: ${rowsBase.length}</div>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>N°</th>
-                                    <th>DNI</th>
-                                    <th>DERECHOHABIENTE</th>
-                                    <th>CARTERO ASIGNADO</th>
-                                    <th>TIPO</th>
-                                    <th>OBSERVACIONES</th>
-                                    <th>FECHA DE INGRESO A DESPACHO</th>
-                                    <th>FIRMA</th>
-                                </tr>
-                            </thead>
-                            <tbody>${rowsHtml}</tbody>
-                        </table>
-                    </body>
-                    </html>
+                const css = `
+                    @page { size: ${selectedPaper.page}; margin: 10mm; }
+                    body { font-family: Arial, sans-serif; margin: 0; color: #111827; }
+                    h1 { font-size: 16px; margin: 0 0 6px; }
+                    .meta { font-size: 12px; margin-bottom: 10px; color: #374151; }
+                    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+                    th, td { border: 1px solid #111827; font-size: 10px; padding: 6px 4px; vertical-align: middle; word-wrap: break-word; }
+                    th { background: #111827; color: #fff; text-transform: uppercase; font-weight: 700; }
+                    th:nth-child(1), td:nth-child(1) { width: 5%; text-align: center; }
+                    th:nth-child(2), td:nth-child(2) { width: 11%; }
+                    th:nth-child(3), td:nth-child(3) { width: 22%; }
+                    th:nth-child(4), td:nth-child(4) { width: 15%; }
+                    th:nth-child(5), td:nth-child(5) { width: 10%; }
+                    th:nth-child(6), td:nth-child(6) { width: 20%; }
+                    th:nth-child(7), td:nth-child(7) { width: 12%; }
+                    th:nth-child(8), td:nth-child(8) { width: 10%; }
                 `;
-                try {
-                    const iframe = document.createElement('iframe');
-                    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;opacity:0;pointer-events:none;';
-                    document.body.appendChild(iframe);
-                    const doc = iframe.contentDocument || iframe.contentWindow.document;
-                    doc.open();
-                    doc.write(html);
-                    doc.close();
-                    setTimeout(() => {
-                        try {
-                            iframe.contentWindow.focus();
-                            iframe.contentWindow.print();
-                        } catch (_) {}
-                        setTimeout(() => {
-                            try { document.body.removeChild(iframe); } catch (_) {}
-                        }, 2000);
-                    }, 250);
-                } catch (e) {
-                    alert('No se pudo iniciar la impresión: ' + (e?.message || e));
-                }
+                const bodyHtml = `
+                    <h1>Programación de Ruta — ${dateLabel}</h1>
+                    <div class="meta">Formato: ${selectedPaper.label} | Total registros: ${rowsBase.length}</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>N°</th>
+                                <th>DNI</th>
+                                <th>DERECHOHABIENTE</th>
+                                <th>CARTERO ASIGNADO</th>
+                                <th>TIPO</th>
+                                <th>OBSERVACIONES</th>
+                                <th>FECHA DE INGRESO A DESPACHO</th>
+                                <th>FIRMA</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
+                `;
+                printHtmlWithIframe(`Programación Ruta ${selectedDay}`, css, bodyHtml);
             };
 
             return (
