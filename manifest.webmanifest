@@ -1,0 +1,40 @@
+{
+  "name": "IHSS A TU CASA - Plataforma de Dispensación",
+  "short_name": "IHSS A TU CASA",
+  "description": "Plataforma de dispensación de medicamentos IHSS A Tu Casa",
+  "start_url": "./index.html",
+  "categories": ["medical", "health", "business"],
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#194490",
+  "theme_color": "#194490",
+  "scope": "./",
+  "lang": "es-HN",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/ihss-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/ihss-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/ihss-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
