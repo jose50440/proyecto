@@ -2988,7 +2988,6 @@
                         <td>${r.carteroAsignado}</td>
                         <td>${r.tipo}</td>
                         <td>${r.observaciones}</td>
-                        <td>${r.fechaIngresoDespacho}</td>
                         <td>&nbsp;</td>
                     </tr>
                 `).join('');
@@ -3018,9 +3017,8 @@
                     th:nth-child(3), td:nth-child(3) { width: 22%; }
                     th:nth-child(4), td:nth-child(4) { width: 15%; }
                     th:nth-child(5), td:nth-child(5) { width: 10%; }
-                    th:nth-child(6), td:nth-child(6) { width: 20%; }
-                    th:nth-child(7), td:nth-child(7) { width: 12%; }
-                    th:nth-child(8), td:nth-child(8) { width: 10%; }
+                    th:nth-child(6), td:nth-child(6) { width: 22%; }
+                    th:nth-child(7), td:nth-child(7) { width: 15%; }
                 `;
                 const bodyHtml = `
                     <table>
@@ -3032,7 +3030,6 @@
                                 <th>CARTERO ASIGNADO</th>
                                 <th>TIPO</th>
                                 <th>OBSERVACIONES</th>
-                                <th>FECHA DE INGRESO A DESPACHO</th>
                                 <th>FIRMA</th>
                             </tr>
                         </thead>
