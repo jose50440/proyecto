@@ -1236,6 +1236,8 @@
                 if (!newFecha) { alert('Debe definir fecha de entrega.'); return; }
                 const now = new Date().toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit', hour12: false });
                 const today = new Date().toISOString().split('T')[0];
+                const oldFecha = toDateInputValue(incidenciaKit.fechaEntregaAsignada || '') || '';
+                const wasNoEntregado = (incidenciaKit.resultadoEntrega === 'no_entregado') || (incidenciaKit.estadoRuta === 'no_entregado') || (incidenciaKit.confirmacionManana === 'no_lo_llevo');
                 const payload = {
                     usuarioDelivery: newDelivery,
                     fechaEntregaAsignada: newFecha,
@@ -1253,6 +1255,32 @@
                     horaResultadoEntrega: '',
                     cierreJornadaPendiente: false
                 };
+                if (newFecha && oldFecha && newFecha !== oldFecha) {
+                    const histReprog = Array.isArray(incidenciaKit.historialReprogramacionesFechaEntrega) ? [...incidenciaKit.historialReprogramacionesFechaEntrega] : [];
+                    histReprog.push({
+                        fechaAnterior: oldFecha,
+                        fechaNueva: newFecha,
+                        cuando: today,
+                        hora: now,
+                        usuario: (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim() || 'Logística'
+                    });
+                    payload.historialReprogramacionesFechaEntrega = histReprog;
+                }
+                if (wasNoEntregado) {
+                    const histNoEnt = Array.isArray(incidenciaKit.historialNoEntregasRuta) ? [...incidenciaKit.historialNoEntregasRuta] : [];
+                    histNoEnt.push({
+                        fecha: (incidenciaKit.fechaResultadoEntrega || incidenciaKit.fechaConfirmacionManana || today || '').toString().trim(),
+                        hora: (incidenciaKit.horaResultadoEntrega || incidenciaKit.horaConfirmacionManana || '').toString().trim(),
+                        motivo: (incidenciaKit.observacionNoEntrega || incidenciaKit.motivoNoLoLlevo || '').toString().trim(),
+                        carteroAsignado: (incidenciaKit.usuarioDelivery || '').toString().trim(),
+                        marcadoPor: (incidenciaKit.usuarioDelivery || '').toString().trim() || 'Motorista',
+                        fechaReprogramada: newFecha,
+                        reprogramado: true,
+                        usuarioReprograma: (currentUser?.name || currentUser?.nombre || currentUser?.username || '').trim() || 'Logística',
+                        cuandoReprograma: today
+                    });
+                    payload.historialNoEntregasRuta = histNoEnt;
+                }
                 try {
                     await onSaveKit(incidenciaKit.id, payload, incidenciaKit.patientId, true);
                     setShowGestionIncidenciaModal(false);
@@ -2671,6 +2699,10 @@
             const [dayTab, setDayTab] = useState('ventanilla');
             const [daySearch, setDaySearch] = useState('');
             const [kitDetalle, setKitDetalle] = useState(null);
+            const [showPrintOptions, setShowPrintOptions] = useState(false);
+            const [printPaper, setPrintPaper] = useState('carta');
+            const [noEntFechaAbierta, setNoEntFechaAbierta] = useState(null);
+            const [noEntSearch, setNoEntSearch] = useState('');
 
             const normalizeDate = (v) => {
                 const raw = (v || '').toString().trim();
@@ -2748,41 +2780,143 @@
                 });
             }, [dayData, dayTab, daySearch, patients]);
 
+            const noEntregadosPorDia = useMemo(() => {
+                const map = {};
+                const push = (dateStr, item) => {
+                    const d = (dateStr || '').toString().trim();
+                    if (!d || d === 'undefined' || d === 'null') return;
+                    if (!map[d]) map[d] = [];
+                    map[d].push(item);
+                };
+                (kits || []).forEach(k => {
+                    const pt = (patients || []).find(p => p.id === k.patientId || ((p.dni || '').toString().trim() && (k.dni || '').toString().trim() && (p.dni || '').toString().trim() === (k.dni || '').toString().trim()));
+                    const isNoEnt = (k.resultadoEntrega === 'no_entregado') || (k.estadoRuta === 'no_entregado') || (k.confirmacionManana === 'no_lo_llevo');
+                    if (isNoEnt) {
+                        const d = normalizeDate(k.fechaResultadoEntrega || k.fechaConfirmacionManana || k.fechaEntregaAsignada || '');
+                        push(d, {
+                            key: `cur_${k.id}_${d}`,
+                            kitId: k.id,
+                            dni: (k.dni || pt?.dni || '—').toString().trim() || '—',
+                            nombre: (k.nombre || pt?.nombre || '—').toString().trim() || '—',
+                            carteroAsignado: (k.usuarioDelivery || 'Sin asignar').toString().trim() || 'Sin asignar',
+                            marcadoPor: (k.usuarioDelivery || '').toString().trim() || 'Motorista',
+                            motivo: (k.observacionNoEntrega || k.motivoNoLoLlevo || 'Sin motivo').toString().trim(),
+                            reprogramado: false,
+                            fechaReprogramada: '',
+                            fromHistory: false
+                        });
+                    }
+                    const hist = Array.isArray(k.historialNoEntregasRuta) ? k.historialNoEntregasRuta : [];
+                    hist.forEach((h, i) => {
+                        const d = normalizeDate(h?.fecha || h?.fechaResultado || '');
+                        push(d, {
+                            key: `hist_${k.id}_${i}_${d}`,
+                            kitId: k.id,
+                            dni: (k.dni || pt?.dni || '—').toString().trim() || '—',
+                            nombre: (k.nombre || pt?.nombre || '—').toString().trim() || '—',
+                            carteroAsignado: (h?.carteroAsignado || k.usuarioDelivery || 'Sin asignar').toString().trim() || 'Sin asignar',
+                            marcadoPor: (h?.marcadoPor || h?.usuarioReprograma || k.usuarioDelivery || 'Motorista').toString().trim() || 'Motorista',
+                            motivo: (h?.motivo || h?.observacion || k.observacionNoEntrega || k.motivoNoLoLlevo || 'Sin motivo').toString().trim(),
+                            reprogramado: !!(h?.reprogramado || h?.fechaReprogramada),
+                            fechaReprogramada: (h?.fechaReprogramada || '').toString().trim(),
+                            fromHistory: true
+                        });
+                    });
+                });
+                return Object.entries(map)
+                    .map(([fecha, items]) => ({
+                        fecha,
+                        label: formatDate(fecha),
+                        items: items.filter((it, idx, arr) => arr.findIndex(x => x.key === it.key) === idx),
+                        count: items.length
+                    }))
+                    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+            }, [kits, patients]);
+
+            const noEntDiaActualItems = useMemo(() => {
+                const base = (noEntregadosPorDia.find(x => x.fecha === noEntFechaAbierta)?.items) || [];
+                const t = (noEntSearch || '').trim().toLowerCase();
+                if (!t) return base;
+                return base.filter(i =>
+                    (i.nombre || '').toLowerCase().includes(t) ||
+                    (i.dni || '').toLowerCase().includes(t) ||
+                    (i.carteroAsignado || '').toLowerCase().includes(t) ||
+                    (i.motivo || '').toLowerCase().includes(t)
+                );
+            }, [noEntregadosPorDia, noEntFechaAbierta, noEntSearch]);
+
+            const descargarReporteNoEntregadosDia = async (fecha) => {
+                if (!fecha) return;
+                const day = noEntregadosPorDia.find(x => x.fecha === fecha);
+                const list = day?.items || [];
+                if (list.length === 0) {
+                    alert('No hay registros de no entregados para esta fecha.');
+                    return;
+                }
+                try {
+                    const XLSX = await window.ensureXLSX();
+                    const rows = list.map((r, i) => ({
+                        'N°': i + 1,
+                        'DNI': r.dni,
+                        'DERECHOHABIENTE': r.nombre,
+                        'CARTERO ASIGNADO': r.carteroAsignado,
+                        'MOTIVO NO ENTREGA': r.motivo,
+                        'MARCADO POR': r.marcadoPor,
+                        'REPROGRAMADO': r.reprogramado ? 'SI' : 'NO',
+                        'NUEVA FECHA': r.fechaReprogramada || '—'
+                    }));
+                    const headers = ['N°', 'DNI', 'DERECHOHABIENTE', 'CARTERO ASIGNADO', 'MOTIVO NO ENTREGA', 'MARCADO POR', 'REPROGRAMADO', 'NUEVA FECHA'];
+                    const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+                    ws['!cols'] = [{ wch: 6 }, { wch: 16 }, { wch: 32 }, { wch: 24 }, { wch: 42 }, { wch: 20 }, { wch: 14 }, { wch: 14 }];
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'No entregados');
+                    XLSX.writeFile(wb, `no_entregados_logistica_${fecha}.xlsx`);
+                } catch (e) {
+                    alert('Error al descargar reporte: ' + (e?.message || e));
+                }
+            };
+
+            const getRutaRowsBase = () => {
+                return dayData
+                    .filter(k => (k.deliveryMode || '').toLowerCase() !== 'ventanilla')
+                    .map(k => {
+                        const pt = (patients || []).find(p => p.id === k.patientId || ((p.dni || '').toString().trim() && (k.dni || '').toString().trim() && (p.dni || '').toString().trim() === (k.dni || '').toString().trim()));
+                        return {
+                            dni: (k.dni || pt?.dni || '—').toString().trim() || '—',
+                            derechohabiente: (k.nombre || pt?.nombre || '—').toString().trim() || '—',
+                            carteroAsignado: (k.usuarioDelivery || 'Sin asignar').toString().trim() || 'Sin asignar',
+                            tipo: tipoKit(k),
+                            observaciones: (k.observacionesLogistica || k.observacionesEntrega || k.observations || '—').toString().trim() || '—',
+                            fechaIngresoDespacho: formatDate(k.fechaEnvioDespachoLogistica || k.fechaTrabajoLogistica || k.fechaEntregaAsignada || '')
+                        };
+                    })
+                    .sort((a, b) => a.carteroAsignado.localeCompare(b.carteroAsignado, 'es') || a.derechohabiente.localeCompare(b.derechohabiente, 'es'));
+            };
+
             const descargarRutaExcel = async () => {
                 if (!selectedDay) return;
                 try {
                     const XLSX = await window.ensureXLSX();
-                    const rowsBase = dayData
-                        .filter(k => (k.deliveryMode || '').toLowerCase() !== 'ventanilla')
-                        .map(k => {
-                            const pt = (patients || []).find(p => p.id === k.patientId || ((p.dni || '').toString().trim() && (k.dni || '').toString().trim() && (p.dni || '').toString().trim() === (k.dni || '').toString().trim()));
-                            return {
-                                dni: (k.dni || pt?.dni || '—').toString().trim() || '—',
-                                derechohabiente: (k.nombre || pt?.nombre || '—').toString().trim() || '—',
-                                cartero: (k.usuarioDelivery || 'Sin asignar').toString().trim() || 'Sin asignar',
-                                tipo: tipoKit(k),
-                                observaciones: (k.observacionesLogistica || k.observacionesEntrega || k.observations || '—').toString().trim() || '—'
-                            };
-                        })
-                        .sort((a, b) => a.cartero.localeCompare(b.cartero, 'es') || a.derechohabiente.localeCompare(b.derechohabiente, 'es'));
+                    const rowsBase = getRutaRowsBase();
 
                     const rows = rowsBase.map((r, i) => ({
                         'N°': i + 1,
                         'DNI': r.dni,
                         'DERECHOHABIENTE': r.derechohabiente,
-                        'Cartero': r.cartero,
+                        'CARTERO ASIGNADO': r.carteroAsignado,
                         'TIPO': r.tipo,
-                        'Observaciones': r.observaciones,
+                        'OBSERVACIONES': r.observaciones,
+                        'FECHA DE INGRESO A DESPACHO': r.fechaIngresoDespacho,
                         'Firma': ''
                     }));
                     if (rows.length === 0) {
                         alert('No hay kits de ruta para esta fecha.');
                         return;
                     }
-                    const headers = ['N°', 'DNI', 'DERECHOHABIENTE', 'Cartero', 'TIPO', 'Observaciones', 'Firma'];
+                    const headers = ['N°', 'DNI', 'DERECHOHABIENTE', 'CARTERO ASIGNADO', 'TIPO', 'OBSERVACIONES', 'FECHA DE INGRESO A DESPACHO', 'Firma'];
                     const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
                     ws['!cols'] = [
-                        { wch: 6 }, { wch: 16 }, { wch: 34 }, { wch: 24 }, { wch: 20 }, { wch: 38 }, { wch: 18 }
+                        { wch: 6 }, { wch: 16 }, { wch: 34 }, { wch: 24 }, { wch: 20 }, { wch: 38 }, { wch: 22 }, { wch: 18 }
                     ];
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, ws, 'Ruta');
@@ -2790,6 +2924,91 @@
                 } catch (e) {
                     alert('Error al descargar Excel: ' + (e?.message || e));
                 }
+            };
+
+            const imprimirProgramacionRuta = () => {
+                if (!selectedDay) return;
+                const rowsBase = getRutaRowsBase();
+                if (rowsBase.length === 0) {
+                    alert('No hay kits de ruta para esta fecha.');
+                    return;
+                }
+                const paperMap = {
+                    carta: { label: 'Carta', page: '8.5in 11in' },
+                    legal: { label: 'Legal', page: '8.5in 14in' },
+                    oficio: { label: 'Oficio (HN)', page: '8.5in 13in' }
+                };
+                const selectedPaper = paperMap[printPaper] || paperMap.carta;
+                const dateLabel = formatDate(selectedDay);
+                const rowsHtml = rowsBase.map((r, i) => `
+                    <tr>
+                        <td>${i + 1}</td>
+                        <td>${r.dni}</td>
+                        <td>${r.derechohabiente}</td>
+                        <td>${r.carteroAsignado}</td>
+                        <td>${r.tipo}</td>
+                        <td>${r.observaciones}</td>
+                        <td>${r.fechaIngresoDespacho}</td>
+                        <td>&nbsp;</td>
+                    </tr>
+                `).join('');
+                const html = `
+                    <!doctype html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8" />
+                        <title>Programación Ruta ${selectedDay}</title>
+                        <style>
+                            @page { size: ${selectedPaper.page}; margin: 10mm; }
+                            body { font-family: Arial, sans-serif; margin: 0; color: #111827; }
+                            h1 { font-size: 16px; margin: 0 0 6px; }
+                            .meta { font-size: 12px; margin-bottom: 10px; color: #374151; }
+                            table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+                            th, td { border: 1px solid #111827; font-size: 10px; padding: 6px 4px; vertical-align: middle; word-wrap: break-word; }
+                            th { background: #111827; color: #fff; text-transform: uppercase; font-weight: 700; }
+                            th:nth-child(1), td:nth-child(1) { width: 5%; text-align: center; }
+                            th:nth-child(2), td:nth-child(2) { width: 11%; }
+                            th:nth-child(3), td:nth-child(3) { width: 22%; }
+                            th:nth-child(4), td:nth-child(4) { width: 15%; }
+                            th:nth-child(5), td:nth-child(5) { width: 10%; }
+                            th:nth-child(6), td:nth-child(6) { width: 20%; }
+                            th:nth-child(7), td:nth-child(7) { width: 12%; }
+                            th:nth-child(8), td:nth-child(8) { width: 10%; }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>Programación de Ruta — ${dateLabel}</h1>
+                        <div class="meta">Formato: ${selectedPaper.label} | Total registros: ${rowsBase.length}</div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>N°</th>
+                                    <th>DNI</th>
+                                    <th>DERECHOHABIENTE</th>
+                                    <th>CARTERO ASIGNADO</th>
+                                    <th>TIPO</th>
+                                    <th>OBSERVACIONES</th>
+                                    <th>FECHA DE INGRESO A DESPACHO</th>
+                                    <th>FIRMA</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rowsHtml}</tbody>
+                        </table>
+                    </body>
+                    </html>
+                `;
+                const win = window.open('', '_blank', 'noopener,noreferrer');
+                if (!win) {
+                    alert('No se pudo abrir la ventana de impresión. Verifica bloqueadores de ventanas emergentes.');
+                    return;
+                }
+                win.document.open();
+                win.document.write(html);
+                win.document.close();
+                win.focus();
+                setTimeout(() => {
+                    win.print();
+                }, 250);
             };
 
             return (
@@ -2835,6 +3054,34 @@
                         </div>
                     </div>
 
+                    <div className="bg-white rounded-3xl shadow-soft overflow-hidden border-l-4 border-l-red-500">
+                        <div className="p-5 border-b border-red-200 bg-red-50/80 flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h3 className="font-bold text-red-800">Carpeta de no entregados</h3>
+                                <p className="text-xs text-red-700 mt-0.5">Seleccione una fecha para ver los kits marcados como no entregados.</p>
+                            </div>
+                            <span className="text-sm font-semibold text-red-800">{noEntregadosPorDia.reduce((a, b) => a + (b.count || 0), 0)} registro(s)</span>
+                        </div>
+                        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {noEntregadosPorDia.length === 0 ? (
+                                <div className="col-span-full p-10 text-center text-slate-500">No hay no entregados registrados.</div>
+                            ) : noEntregadosPorDia.map(({ fecha, label, count }) => (
+                                <button
+                                    key={fecha}
+                                    type="button"
+                                    onClick={() => { setNoEntFechaAbierta(fecha); setNoEntSearch(''); }}
+                                    className="flex items-center gap-3 p-4 rounded-2xl border-2 border-slate-200 hover:border-red-300 hover:bg-red-50/40 transition-all text-left btn-hover-effect"
+                                >
+                                    <div className="p-2.5 rounded-xl bg-red-100 text-red-700"><Icons.Folder size={22} /></div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="font-bold text-slate-800 truncate">{label}</div>
+                                        <div className="text-xs text-slate-500">{count} kit(s)</div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     {selectedDay && (
                         <Modal isOpen={true} onClose={() => setSelectedDay(null)} title={`Calendario Logística — ${formatDate(selectedDay)}`} maxWidth="max-w-5xl">
                             <div className="space-y-4">
@@ -2845,9 +3092,14 @@
                                     </div>
                                     <div className="flex flex-wrap items-center gap-3">
                                         {dayTab === 'ruta' && (
-                                            <button type="button" onClick={descargarRutaExcel} className="btn-list-action px-4 bg-green-100 text-green-700 hover:bg-green-200 transition-colors btn-hover-effect flex items-center gap-2">
-                                                <Icons.Download size={16}/> Descargar Excel Ruta
-                                            </button>
+                                            <>
+                                                <button type="button" onClick={descargarRutaExcel} className="btn-list-action px-4 bg-green-100 text-green-700 hover:bg-green-200 transition-colors btn-hover-effect flex items-center gap-2">
+                                                    <Icons.Download size={16}/> Descargar Excel Ruta
+                                                </button>
+                                                <button type="button" onClick={() => setShowPrintOptions(true)} className="btn-list-action px-4 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors btn-hover-effect flex items-center gap-2">
+                                                    <Icons.Printer size={16}/> Imprimir programación
+                                                </button>
+                                            </>
                                         )}
                                         <div className="relative w-full sm:w-72">
                                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
@@ -2922,6 +3174,98 @@
                             </Modal>
                         );
                     })()}
+
+                    {showPrintOptions && (
+                        <Modal isOpen={true} onClose={() => setShowPrintOptions(false)} title="Imprimir programación de ruta" maxWidth="max-w-lg">
+                            <div className="space-y-4">
+                                <p className="text-sm text-slate-600">Selecciona el tamaño de papel comercial en Honduras y luego presiona imprimir para abrir el cuadro de impresión del sistema.</p>
+                                <div className="space-y-2">
+                                    <label className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer ${printPaper === 'carta' ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+                                        <span className="font-medium text-slate-800">Carta</span>
+                                        <span className="text-xs text-slate-500">8.5" x 11" (216 x 279 mm)</span>
+                                        <input type="radio" className="sr-only" name="paper-size" checked={printPaper === 'carta'} onChange={() => setPrintPaper('carta')} />
+                                    </label>
+                                    <label className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer ${printPaper === 'legal' ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+                                        <span className="font-medium text-slate-800">Legal</span>
+                                        <span className="text-xs text-slate-500">8.5" x 14" (216 x 356 mm)</span>
+                                        <input type="radio" className="sr-only" name="paper-size" checked={printPaper === 'legal'} onChange={() => setPrintPaper('legal')} />
+                                    </label>
+                                    <label className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer ${printPaper === 'oficio' ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+                                        <span className="font-medium text-slate-800">Oficio (HN)</span>
+                                        <span className="text-xs text-slate-500">8.5" x 13" (216 x 330 mm)</span>
+                                        <input type="radio" className="sr-only" name="paper-size" checked={printPaper === 'oficio'} onChange={() => setPrintPaper('oficio')} />
+                                    </label>
+                                </div>
+                                <div className="flex justify-end gap-3 pt-2">
+                                    <button type="button" onClick={() => setShowPrintOptions(false)} className="btn-list-action px-6 bg-slate-600 text-white hover:bg-slate-700 transition-colors btn-hover-effect">Cancelar</button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setShowPrintOptions(false); imprimirProgramacionRuta(); }}
+                                        className="btn-list-action px-6 bg-indigo-600 text-white hover:bg-indigo-700 transition-colors btn-hover-effect flex items-center gap-2"
+                                    >
+                                        <Icons.Printer size={16}/> Imprimir
+                                    </button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
+
+                    {noEntFechaAbierta && (
+                        <Modal isOpen={true} onClose={() => setNoEntFechaAbierta(null)} title={`No entregados — ${formatDate(noEntFechaAbierta)}`} maxWidth="max-w-5xl">
+                            <div className="space-y-4">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => descargarReporteNoEntregadosDia(noEntFechaAbierta)}
+                                        className="btn-list-action px-4 bg-red-100 text-red-700 hover:bg-red-200 transition-colors btn-hover-effect flex items-center gap-2"
+                                    >
+                                        <Icons.Download size={16} /> Descargar reporte del día
+                                    </button>
+                                    <div className="relative w-full sm:w-72">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                        <input type="text" placeholder="Buscar por nombre, DNI, cartero o motivo..." value={noEntSearch} onChange={e => setNoEntSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-xl border border-slate-200 text-sm outline-none focus:border-red-300 focus:ring-1 focus:ring-red-200" />
+                                    </div>
+                                </div>
+                                <div className="divide-y divide-slate-100 max-h-[56vh] overflow-y-auto rounded-xl border border-slate-100">
+                                    {noEntDiaActualItems.length === 0 ? (
+                                        <div className="p-10 text-center text-slate-500">No hay registros para mostrar.</div>
+                                    ) : noEntDiaActualItems.map((item, i) => {
+                                        const kit = (kits || []).find(k => k.id === item.kitId);
+                                        return (
+                                            <div key={item.key || i} className="p-4 hover:bg-slate-50/60 transition-colors flex flex-wrap items-center gap-4">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="font-bold text-slate-800">{item.nombre}</span>
+                                                        <span className="px-2 py-0.5 rounded-lg bg-red-100 text-red-800 text-xs font-bold">No entregado</span>
+                                                        {item.reprogramado && <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 text-xs font-bold">Reprogramado</span>}
+                                                    </div>
+                                                    <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
+                                                        <span>DNI: {item.dni}</span>
+                                                        <span>Cartero: {item.carteroAsignado}</span>
+                                                        <span>Marcado por: {item.marcadoPor || '—'}</span>
+                                                    </div>
+                                                    <div className="text-xs text-red-700 mt-1">
+                                                        Motivo: {item.motivo || 'Sin motivo'}
+                                                        {item.fechaReprogramada ? ` | Nueva fecha: ${formatDate(item.fechaReprogramada)}` : ''}
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                                    {kit && (
+                                                        <button type="button" onClick={() => setKitDetalle(kit)} className="btn-list-action bg-slate-500 text-white hover:bg-slate-600 transition-colors btn-hover-effect flex items-center gap-2">
+                                                            <Icons.Eye size={16}/> Ver
+                                                        </button>
+                                                    )}
+                                                    {!item.reprogramado && (
+                                                        <span className="px-2 py-1 rounded-lg text-xs font-bold bg-red-100 text-red-700">Pendiente de reprogramar</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
                 </div>
             );
         };
