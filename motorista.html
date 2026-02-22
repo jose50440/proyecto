@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#194490">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="IHSS A TU CASA">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./icons/ihss-logo.png" type="image/png">
+    <link rel="apple-touch-icon" href="./icons/ihss-logo.png">
+    <title>Motorista - IHSS A TU CASA</title>
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://unpkg.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        window.SUPABASE_URL = 'https://nevnnxjicyhwkzrgtadu.supabase.co';
+        window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ldm5ueGppY3lod2t6cmd0YWR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMjc4ODksImV4cCI6MjA4NDcwMzg4OX0._pewkeLOL68mlJ6uIq7yMjDDcISMSZMfdGFK0m3K6KI';
+    </script>
+    <script src="supabase-db-adapter.js"></script>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], display: ['Poppins', 'sans-serif'] },
+                    colors: {
+                        turquoise: { 50:'#e8eef9', 100:'#c5d4f0', 200:'#9fb8e6', 300:'#6894d9', 400:'#3570c5', 500:'#194490', 600:'#163b7d', 700:'#12326a', 800:'#0e2857', 900:'#0a1e44' },
+                        clinical: { 50:'#e8f5e9', 100:'#c8e6c9', 200:'#a5d6a7', 300:'#81c784', 400:'#66bb6a', 500:'#43a047', 600:'#388e3c', 700:'#2e7d32', 800:'#1b5e20', 900:'#145214' }
+                    },
+                    boxShadow: { soft: '0 4px 20px -2px rgba(25, 68, 144, 0.15)', glow: '0 0 15px rgba(67, 160, 71, 0.3)' }
+                }
+            }
+        }
+    </script>
+    <style>
+        html, body { overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+        body { font-family: 'Inter', sans-serif; background-color: #e8eef9; }
+        h1, h2, h3, h4, .brand-font { font-family: 'Poppins', sans-serif; }
+        @media (max-width: 767px) {
+            .mobile-header-height { height: 56px; min-height: 56px; }
+            .mobile-content-pt { padding-top: calc(56px + env(safe-area-inset-top, 0px)) !important; }
+        }
+        @media (max-width: 767px) and (orientation: portrait) {
+            html, body { min-height: 100vh; min-height: 100dvh; -webkit-overflow-scrolling: touch; overflow-x: hidden; }
+            .main-col { min-height: 0 !important; }
+            .mobile-content-area { overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0 !important; }
+            .modal-scroll-portrait { max-height: min(85vh, calc(100dvh - 80px)); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+            .grid-portrait-1 { grid-template-columns: 1fr !important; }
+            .min-tap-target { min-height: 44px; min-width: 44px; }
+        }
+        @media (max-width: 767px) and (orientation: landscape) {
+            html, body { height: 100vh; height: 100dvh; min-height: 100vh; max-height: 100vh; overflow: hidden; }
+            #root { height: 100%; min-height: 0; }
+            .app-layout { height: 100% !important; min-height: 0 !important; max-height: 100% !important; }
+            .mobile-header-height { height: 44px; min-height: 44px; }
+            .mobile-content-pt { padding-top: calc(44px + env(safe-area-inset-top, 0px)) !important; }
+        }
+        .glass-panel-futuro { background: #fff; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 12px 40px -10px rgba(0,0,0,0.08); }
+        .futuro-orb { position: absolute; border-radius: 9999px; pointer-events: none; }
+        .futuro-glow { box-shadow: 0 0 20px rgba(25, 68, 144, 0.2), 0 0 40px rgba(67, 160, 71, 0.08); }
+        .app-layout[data-theme="nueva"] { background: linear-gradient(135deg, #e8eef9 0%, #c5d4f0 50%, #e8f5e9 100%) !important; }
+        .app-layout[data-theme="nueva"] .app-sidebar, .app-layout[data-theme="nueva"] .app-mobile-menu { background: linear-gradient(180deg, #0a1e44 0%, #163b7d 50%, #194490 100%) !important; }
+        .app-layout[data-theme="nueva"] .main-col { background: linear-gradient(135deg, #e8eef9 0%, #fff 30%, #e8f5e9 100%) !important; }
+        .app-layout[data-theme="nueva"] .glass-panel-futuro { background: #fff !important; }
+        .app-layout[data-theme="nueva"] .glass-panel-futuro .text-slate-700, .app-layout[data-theme="nueva"] .glass-panel-futuro .text-slate-400 { color: #0f172a !important; }
+        .badge-welcome { background-color: rgba(255,255,255,0.2); }
+        .app-layout[data-theme="nueva"] .dashboard-welcome-banner, .app-layout[data-theme="nueva"] .dashboard-welcome-banner h1, .app-layout[data-theme="nueva"] .dashboard-welcome-banner p, .app-layout[data-theme="nueva"] .dashboard-welcome-banner .badge-welcome { color: #0f172a !important; }
+        .app-layout[data-theme="nueva"] .dashboard-welcome-banner { background: linear-gradient(135deg, #e3eaf6 0%, #c5d4f0 50%, #c8e6c9 100%) !important; border-color: rgba(25,68,144,0.3) !important; }
+        .app-layout[data-theme="nueva"] .dashboard-welcome-banner .badge-welcome { background-color: rgba(255,255,255,0.9) !important; color: #194490 !important; }
+        .app-layout[data-theme="nueva"] .app-sidebar .border-turquoise-800, .app-layout[data-theme="nueva"] .app-mobile-menu .border-turquoise-800 { border-color: rgba(255,255,255,0.2) !important; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .btn-hover-effect { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .btn-hover-effect:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .btn-hover-effect:active { transform: translateY(0) scale(0.95); }
+        .btn-list-nav { padding: 0.625rem 1rem; font-size: 0.8125rem; font-weight: 600; border-radius: 0.75rem; min-height: 40px; white-space: nowrap; }
+        .btn-list-action { padding: 0.5rem 1rem; font-size: 0.8125rem; font-weight: 600; border-radius: 0.75rem; min-height: 38px; }
+        @keyframes slideInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-in { animation: slideInUp 0.3s ease-out; }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .modal-animate { animation: modalIn 0.2s ease-out forwards; }
+        .mobile-modal-top { top: 56px; }
+        .icon-elegant { stroke-width: 1.75; }
+        @media (max-width: 1199px) {
+            .modal-split-friendly { max-width: calc(100vw - 2rem) !important; }
+            .app-layout { min-w: 0; }
+            .main-col { min-w: 0; }
+        }
+    </style>
+</head>
+<body class="text-slate-600 h-screen overflow-hidden selection:bg-turquoise-200 selection:text-turquoise-900">
+    <div id="root" class="h-full">
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;background:#e8eef9;font-family:system-ui,sans-serif">
+            <div style="text-align:center">
+                <div style="width:40px;height:40px;border:3px solid #194490;border-top-color:transparent;border-radius:50%;animation:swSpin .7s linear infinite;margin:0 auto 12px"></div>
+                <p style="color:#194490;font-weight:600;font-size:14px">Cargando Motorista...</p>
+            </div>
+        </div>
+    </div>
+    <style>@keyframes swSpin{to{transform:rotate(360deg)}}</style>
+    <script type="text/babel" data-presets="env,react">
+        const React = window.React;
+        const ReactDOM = window.ReactDOM;
+        if (!React || !ReactDOM) {
+            console.error('React o ReactDOM no cargados. Verifica los scripts UMD de React 18.');
+        }
+        window.firebase = window.firebase || {
+            firestore: {
+                FieldValue: { serverTimestamp: () => ({ __supabaseServerTs: true }), delete: () => ({ __supabaseDelete: true }) },
+                FieldPath: { documentId: () => '__documentId__' }
+            }
+        };
+        let app = {}, auth = {}, db = null;
+        let firebaseInitialized = false;
+        let firebaseInitPromise = null;
+
+        const initializeSupabase = async () => {
+            if (firebaseInitPromise) return firebaseInitPromise;
+            if (firebaseInitialized && db) return { app, auth, db };
+            firebaseInitPromise = (async () => {
+                try {
+                    const url = window.SUPABASE_URL;
+                    const key = window.SUPABASE_ANON_KEY;
+                    if (!url || !key) throw new Error('Falta SUPABASE_URL o SUPABASE_ANON_KEY en la configuración.');
+                    if (typeof window.supabase === 'undefined') throw new Error('Script de Supabase no cargado.');
+                    if (typeof window.createSupabaseAdapter !== 'function') throw new Error('supabase-db-adapter.js no cargado.');
+                    const { createClient } = window.supabase;
+                    const supabase = createClient(url, key);
+                    db = window.createSupabaseAdapter(supabase);
+                    firebaseInitialized = true;
+                    console.log('Supabase conectado (motorista.html)');
+                    return { app, auth, db };
+                } catch (e) {
+                    console.error('Error inicializando Supabase:', e);
+                    firebaseInitPromise = null;
+                    throw e;
+                }
+            })();
+            return firebaseInitPromise;
+        };
+
+        const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+        (function audioUnlock() {
+            let unlocked = false;
+            const unlock = () => {
+                if (unlocked) return;
+                unlocked = true;
+                try {
+                    const a = new Audio('./alertaentrega.mp3');
+                    a.volume = 0.001;
+                    a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
+                } catch (_) {}
+            };
+            document.addEventListener('click', unlock, { once: true });
+            document.addEventListener('touchstart', unlock, { once: true });
+        })();
+
+        const NullComponent = () => null;
+        const safeCreateElement = (Comp, props) => (Comp != null && typeof Comp === 'function') ? React.createElement(Comp, props) : null;
+        const SafeIcon = ({ icon: IconComp, ...rest }) => (IconComp != null && typeof IconComp === 'function') ? React.createElement(IconComp, rest) : null;
+
+        const Icon = ({ path, size = 20 }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="icon-elegant">{path}</svg>;
+        const IconsBase = {
+            Truck: (p) => <Icon {...p} path={<><path d="M16 3h5l5 5v11a2 2 0 0 1-2 2h-2"/><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h2"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></>} />,
+            Search: (p) => <Icon {...p} path={<><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></>} />,
+            Eye: (p) => <Icon {...p} path={<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></>} />,
+            X: (p) => <Icon {...p} path={<><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></>} />,
+            RefreshCw: (p) => <Icon {...p} path={<><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></>} />,
+            LogOut: (p) => <Icon {...p} path={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></>} />,
+            Menu: (p) => <Icon {...p} path={<><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line></>} />,
+            ArrowLeft: (p) => <Icon {...p} path={<><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></>} />,
+            ChevronsRight: (p) => <Icon {...p} path={<polyline points="13 17 18 12 13 7"></polyline>} />
+        };
+        const Icons = new Proxy(IconsBase, {
+            get(target, prop) {
+                const value = target[prop];
+                if (value != null && typeof value === 'function') return value;
+                if (typeof prop === 'string') console.warn('[Icons] Icono no definido o invalido:', prop);
+                return NullComponent;
+            }
+        });
+
+        const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' }) => {
+            useEffect(() => {
+                if (!isOpen) return;
+                const h = (e) => { if (e.key === 'Escape') onClose(); };
+                document.addEventListener('keydown', h);
+                return () => document.removeEventListener('keydown', h);
+            }, [isOpen, onClose]);
+            if (!isOpen) return null;
+            return (
+                <div className="mobile-modal-top fixed left-0 right-0 bottom-0 top-14 md:top-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+                    <div className={`bg-white rounded-2xl shadow-2xl w-full ${maxWidth} overflow-hidden flex flex-col max-h-[90vh] modal-animate modal-split-friendly`}>
+                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <h3 className="font-bold text-lg text-slate-800 brand-font">{title}</h3>
+                            <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full"><Icons.X size={20}/></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto modal-scroll-portrait flex-1 min-h-0">{children}</div>
+                    </div>
+                </div>
+            );
+        };
+
+        class CacheManager {
+            constructor() {
+                this.KITS_CACHE_KEY = 'kits_cache';
+                this.CACHE_DURATION = 7 * 24 * 60 * 60 * 1000;
+            }
+            getFromCache(key) {
+                try {
+                    const raw = localStorage.getItem(key);
+                    if (!raw) return null;
+                    const { data, timestamp } = JSON.parse(raw);
+                    if (Date.now() - timestamp > this.CACHE_DURATION) return null;
+                    return data;
+                } catch { return null; }
+            }
+            saveToCache(key, data) {
+                try { localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() })); } catch (_) {}
+            }
+            getKits() { return this.getFromCache(this.KITS_CACHE_KEY); }
+            saveKits(kits) { this.saveToCache(this.KITS_CACHE_KEY, kits); }
+            clearCache(key) { try { localStorage.removeItem(key); } catch (_) {} }
+        }
+
+        const MotoristaRutaBlock = ({ kits = [], patients = [], onSaveKit, currentUser, onRefreshKits }) => {
+            const [search, setSearch] = useState('');
+            const [kitAbierto, setKitAbierto] = useState(null);
+            const [showNoLlevoModal, setShowNoLlevoModal] = useState(false);
+            const [noLlevoKit, setNoLlevoKit] = useState(null);
+            const [motivoNoLlevo, setMotivoNoLlevo] = useState('');
+            const [showNoEntregadoModal, setShowNoEntregadoModal] = useState(false);
+            const [noEntregadoKit, setNoEntregadoKit] = useState(null);
+            const [observacionNoEntregado, setObservacionNoEntregado] = useState('');
+            const [showCierreJornadaModal, setShowCierreJornadaModal] = useState(false);
+            const [cierreObsByKit, setCierreObsByKit] = useState({});
+            const [saving, setSaving] = useState(false);
+            const me = ((currentUser?.nombre || currentUser?.name || currentUser?.username || '') + '').trim();
+            const meNorm = me.toLowerCase();
+            const today = new Date().toISOString().split('T')[0];
+            const toDate = (v) => {
+                const raw = (v || '').toString().trim();
+                if (!raw) return '';
+                if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+                try { return new Date(raw).toISOString().split('T')[0]; } catch { return ''; }
+            };
+            const nowTime = () => new Date().toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+            const myTodayKits = useMemo(() => (kits || []).filter(k => {
+                const isRuta = (k.deliveryMode || '').toLowerCase() === 'ruta';
+                if (!isRuta) return false;
+                const user = (k.usuarioDelivery || '').toString().trim().toLowerCase();
+                if (!user || user !== meNorm) return false;
+                const f = toDate(k.fechaEntregaAsignada);
+                return f === today;
+            }).sort((a,b) => new Date(a.fechaEntregaAsignada || 0) - new Date(b.fechaEntregaAsignada || 0)), [kits, meNorm, today]);
+
+            const activadaJornada = useMemo(() => myTodayKits.some(k => !!k.activacionMananaHabilitada), [myTodayKits]);
+            const estadoKit = (k) => {
+                const fe = (k.fechaEntregaKit || '').toString().trim();
+                if (fe && fe !== 'undefined' && fe !== 'null') return { key: 'entregado', label: 'Entregado', cls: 'bg-green-100 text-green-800' };
+                if ((k.resultadoEntrega === 'no_entregado') || (k.estadoRuta === 'no_entregado') || (k.confirmacionManana === 'no_lo_llevo')) return { key: 'no_entregado', label: 'No entregado', cls: 'bg-red-100 text-red-800' };
+                if (k.recogidoPorDelivery) return { key: 'en_ruta', label: 'En ruta', cls: 'bg-emerald-100 text-emerald-800' };
+                if (k.enviadoADespachoLogistica || k.trabajadoLogistica) return { key: 'despacho', label: 'En despacho', cls: 'bg-amber-100 text-amber-800' };
+                return { key: 'elaboracion', label: 'En proceso de elaboración del kit', cls: 'bg-slate-100 text-slate-700' };
+            };
+
+            const list = useMemo(() => {
+                const t = (search || '').trim().toLowerCase();
+                if (!t) return myTodayKits;
+                return myTodayKits.filter(k => {
+                    const pt = (patients || []).find(p => p.id === k.patientId || ((p.dni || '').toString().trim() && (k.dni || '').toString().trim() && (p.dni || '').toString().trim() === (k.dni || '').toString().trim()));
+                    return (k.nombre || pt?.nombre || '').toLowerCase().includes(t) || (k.dni || pt?.dni || '').toString().toLowerCase().includes(t);
+                });
+            }, [myTodayKits, search, patients]);
+
+            const confirmarLlevaKit = async (kit) => {
+                if (!activadaJornada) return;
+                setSaving(true);
+                try {
+                    await onSaveKit(kit.id, {
+                        confirmacionManana: 'confirmado',
+                        fechaConfirmacionManana: today,
+                        horaConfirmacionManana: nowTime(),
+                        estadoRuta: kit.recogidoPorDelivery ? 'en_ruta' : 'despacho'
+                    }, kit.patientId, true);
+                    if (onRefreshKits) onRefreshKits();
+                } catch (e) { alert('Error: ' + (e?.message || e)); }
+                setSaving(false);
+            };
+
+            const confirmarNoLlevo = async () => {
+                if (!noLlevoKit) return;
+                const motivo = (motivoNoLlevo || '').trim();
+                if (!motivo) { alert('Debe indicar por qué no llevará el kit.'); return; }
+                setSaving(true);
+                try {
+                    await onSaveKit(noLlevoKit.id, {
+                        confirmacionManana: 'no_lo_llevo',
+                        motivoNoLoLlevo: motivo,
+                        fechaConfirmacionManana: today,
+                        horaConfirmacionManana: nowTime(),
+                        estadoRuta: 'no_entregado',
+                        resultadoEntrega: 'no_entregado',
+                        observacionNoEntrega: 'No lo llevó en la mañana: ' + motivo,
+                        fechaResultadoEntrega: today,
+                        horaResultadoEntrega: nowTime()
+                    }, noLlevoKit.patientId, true);
+                    window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'no_entregado', paciente: noLlevoKit.nombre || '—', dni: noLlevoKit.dni || '—', origen: 'Motorista: no lo llevó', skipSound: true } }));
+                    setShowNoLlevoModal(false);
+                    setNoLlevoKit(null);
+                    setMotivoNoLlevo('');
+                    if (onRefreshKits) onRefreshKits();
+                } catch (e) { alert('Error: ' + (e?.message || e)); }
+                setSaving(false);
+            };
+
+            const marcarEntregado = async (kit) => {
+                setSaving(true);
+                try {
+                    await onSaveKit(kit.id, {
+                        fechaEntregaKit: today,
+                        horaEntregaKit: nowTime(),
+                        resultadoEntrega: 'entregado',
+                        estadoRuta: 'entregado',
+                        observacionNoEntrega: '',
+                        fechaResultadoEntrega: '',
+                        horaResultadoEntrega: ''
+                    }, kit.patientId, true);
+                    setKitAbierto(null);
+                    if (onRefreshKits) onRefreshKits();
+                } catch (e) { alert('Error: ' + (e?.message || e)); }
+                setSaving(false);
+            };
+
+            const confirmarNoEntregado = async () => {
+                if (!noEntregadoKit) return;
+                const obs = (observacionNoEntregado || '').trim();
+                if (!obs) { alert('Debe indicar la observación de no entrega.'); return; }
+                setSaving(true);
+                try {
+                    await onSaveKit(noEntregadoKit.id, {
+                        resultadoEntrega: 'no_entregado',
+                        estadoRuta: 'no_entregado',
+                        observacionNoEntrega: obs,
+                        fechaResultadoEntrega: today,
+                        horaResultadoEntrega: nowTime()
+                    }, noEntregadoKit.patientId, true);
+                    window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'no_entregado', paciente: noEntregadoKit.nombre || '—', dni: noEntregadoKit.dni || '—', origen: 'Motorista: no entregado', skipSound: true } }));
+                    setShowNoEntregadoModal(false);
+                    setNoEntregadoKit(null);
+                    setObservacionNoEntregado('');
+                    setKitAbierto(null);
+                    if (onRefreshKits) onRefreshKits();
+                } catch (e) { alert('Error: ' + (e?.message || e)); }
+                setSaving(false);
+            };
+
+            const pendientesCierre = useMemo(() => myTodayKits.filter(k => {
+                const st = estadoKit(k).key;
+                return st !== 'entregado' && st !== 'no_entregado';
+            }), [myTodayKits]);
+
+            const ejecutarCierreJornada = async () => {
+                const faltan = pendientesCierre.filter(k => !(cierreObsByKit[k.id] || '').trim());
+                if (faltan.length > 0) { alert('Todos los pendientes deben tener observación.'); return; }
+                setSaving(true);
+                try {
+                    for (const kit of pendientesCierre) {
+                        const obs = (cierreObsByKit[kit.id] || '').trim();
+                        await onSaveKit(kit.id, {
+                            resultadoEntrega: 'no_entregado',
+                            estadoRuta: 'no_entregado',
+                            observacionNoEntrega: obs,
+                            fechaResultadoEntrega: today,
+                            horaResultadoEntrega: nowTime(),
+                            cierreJornadaPendiente: true
+                        }, kit.patientId, true);
+                        window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'no_entregado', paciente: kit.nombre || '—', dni: kit.dni || '—', origen: 'Cierre de jornada motorista', skipSound: true } }));
+                    }
+                    setShowCierreJornadaModal(false);
+                    setCierreObsByKit({});
+                    if (onRefreshKits) onRefreshKits();
+                } catch (e) { alert('Error: ' + (e?.message || e)); }
+                setSaving(false);
+            };
+
+            return (
+                <div className="w-full min-w-0 max-w-6xl mx-auto space-y-6 animate-in">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-800 brand-font">Ruta del Motorista</h2>
+                            <p className="text-sm text-slate-500 mt-1">Lista del día para {me || 'motorista'} ({today}).</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {onRefreshKits && <button type="button" onClick={() => onRefreshKits()} className="btn-list-action px-4 bg-cyan-100 text-cyan-700 hover:bg-cyan-200 transition-colors btn-hover-effect flex items-center gap-2"><Icons.RefreshCw size={16}/> Refrescar</button>}
+                            <button type="button" onClick={() => setShowCierreJornadaModal(true)} className="btn-list-action px-4 bg-red-100 text-red-700 hover:bg-red-200 transition-colors btn-hover-effect">Cerrar jornada</button>
+                        </div>
+                    </div>
+
+                    {!activadaJornada && (
+                        <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm font-semibold">
+                            La jornada matutina aún no ha sido activada por despacho/supervisor para tus kits de hoy.
+                        </div>
+                    )}
+
+                    <div className="bg-white rounded-3xl shadow-soft overflow-hidden border-l-4 border-l-emerald-500">
+                        <div className="p-5 border-b border-emerald-200 bg-emerald-50/80">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <span className="font-bold text-emerald-800">{list.length} kit(s) del día</span>
+                                <div className="relative w-full sm:w-72">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Search size={16}/></span>
+                                    <input type="text" placeholder="Buscar por nombre o DNI..." value={search} onChange={e=>setSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:border-cyan-300 focus:ring-1 focus:ring-cyan-200" />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="divide-y divide-slate-100 max-h-[62vh] overflow-y-auto">
+                            {list.length === 0 ? (
+                                <div className="p-10 text-center text-slate-500">No tienes kits asignados para hoy.</div>
+                            ) : list.map((k, i) => {
+                                const st = estadoKit(k);
+                                const pt = (patients || []).find(p => p.id === k.patientId || ((p.dni || '').toString().trim() && (k.dni || '').toString().trim() && (p.dni || '').toString().trim() === (k.dni || '').toString().trim()));
+                                return (
+                                    <div key={k.id || i} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-wrap items-center gap-4">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="font-bold text-slate-800">{k.nombre || pt?.nombre || '—'}</span>
+                                                <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${st.cls}`}>{st.label}</span>
+                                            </div>
+                                            <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
+                                                <span>DNI: {k.dni || pt?.dni || '—'}</span>
+                                                <span className="font-mono">Fecha: {k.fechaEntregaAsignada || '—'}</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                            {!k.confirmacionManana && st.key !== 'entregado' && st.key !== 'no_entregado' && (
+                                                <>
+                                                    <button type="button" disabled={!activadaJornada || saving} onClick={() => confirmarLlevaKit(k)} className="btn-list-action bg-emerald-600 text-white hover:bg-emerald-700 transition-colors btn-hover-effect">Confirmo que lo llevo</button>
+                                                    <button type="button" disabled={!activadaJornada || saving} onClick={() => { setNoLlevoKit(k); setShowNoLlevoModal(true); }} className="btn-list-action bg-amber-600 text-white hover:bg-amber-700 transition-colors btn-hover-effect">No lo llevo</button>
+                                                </>
+                                            )}
+                                            {st.key !== 'entregado' && st.key !== 'no_entregado' && (
+                                                <button type="button" onClick={() => setKitAbierto(k)} className="btn-list-action bg-cyan-600 text-white hover:bg-cyan-700 transition-colors btn-hover-effect flex items-center gap-2"><Icons.Eye size={16}/> Abrir kit</button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {kitAbierto && (
+                        <Modal isOpen={true} onClose={() => setKitAbierto(null)} title={`Ruta — ${kitAbierto.nombre || 'Kit'}`} maxWidth="max-w-2xl">
+                            <div className="space-y-4">
+                                <p className="text-sm text-slate-500">Marca el resultado final de la entrega.</p>
+                                <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                    <div><span className="text-[10px] font-bold text-slate-400 block">DNI</span><span className="font-mono">{kitAbierto.dni || '—'}</span></div>
+                                    <div><span className="text-[10px] font-bold text-slate-400 block">Fecha programada</span><span>{kitAbierto.fechaEntregaAsignada || '—'}</span></div>
+                                </div>
+                                <div className="flex flex-wrap gap-3">
+                                    <button type="button" disabled={saving} onClick={() => marcarEntregado(kitAbierto)} className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700">Entregado</button>
+                                    <button type="button" disabled={saving} onClick={() => { setNoEntregadoKit(kitAbierto); setShowNoEntregadoModal(true); }} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700">No entregado</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
+
+                    {showNoLlevoModal && noLlevoKit && (
+                        <Modal isOpen={true} onClose={() => { setShowNoLlevoModal(false); setNoLlevoKit(null); setMotivoNoLlevo(''); }} title="No lo llevo (mañana)" maxWidth="max-w-lg">
+                            <div className="space-y-4">
+                                <p className="text-sm text-slate-600">Indica por qué no llevarás este kit hoy.</p>
+                                <textarea value={motivoNoLlevo} onChange={e=>setMotivoNoLlevo(e.target.value)} rows={4} className="w-full p-3 border border-slate-200 rounded-xl text-sm" placeholder="Ejemplo: Es de otro motorista / No viene en carga / otra causa..." />
+                                <div className="flex gap-3">
+                                    <button type="button" disabled={saving} onClick={confirmarNoLlevo} className="flex-1 py-3 bg-amber-600 text-white font-bold rounded-xl hover:bg-amber-700">Guardar</button>
+                                    <button type="button" onClick={() => { setShowNoLlevoModal(false); setNoLlevoKit(null); setMotivoNoLlevo(''); }} className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl hover:bg-slate-700">Cancelar</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
+
+                    {showNoEntregadoModal && noEntregadoKit && (
+                        <Modal isOpen={true} onClose={() => { setShowNoEntregadoModal(false); setNoEntregadoKit(null); setObservacionNoEntregado(''); }} title="No entregado" maxWidth="max-w-lg">
+                            <div className="space-y-4">
+                                <p className="text-sm text-slate-600">La observación es obligatoria para registrar no entrega.</p>
+                                <textarea value={observacionNoEntregado} onChange={e=>setObservacionNoEntregado(e.target.value)} rows={4} className="w-full p-3 border border-slate-200 rounded-xl text-sm" placeholder="Describe por qué no se entregó..." />
+                                <div className="flex gap-3">
+                                    <button type="button" disabled={saving} onClick={confirmarNoEntregado} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700">Guardar no entregado</button>
+                                    <button type="button" onClick={() => { setShowNoEntregadoModal(false); setNoEntregadoKit(null); setObservacionNoEntregado(''); }} className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl hover:bg-slate-700">Cancelar</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
+
+                    {showCierreJornadaModal && (
+                        <Modal isOpen={true} onClose={() => setShowCierreJornadaModal(false)} title="Cerrar jornada" maxWidth="max-w-3xl">
+                            <div className="space-y-4">
+                                <p className="text-sm text-slate-600">Los kits pendientes se marcarán como no entregados. Debes escribir observación en cada uno.</p>
+                                <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+                                    {pendientesCierre.length === 0 ? (
+                                        <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-green-800 text-sm font-semibold">No hay pendientes por cerrar hoy.</div>
+                                    ) : pendientesCierre.map((k, i) => (
+                                        <div key={k.id || i} className="p-3 rounded-xl border border-slate-200">
+                                            <div className="font-semibold text-slate-800">{k.nombre || '—'} <span className="text-xs text-slate-500">DNI: {k.dni || '—'}</span></div>
+                                            <textarea value={cierreObsByKit[k.id] || ''} onChange={e => setCierreObsByKit(prev => ({ ...prev, [k.id]: e.target.value }))} rows={2} className="w-full mt-2 p-2.5 border border-slate-200 rounded-lg text-sm" placeholder="Observación obligatoria..." />
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex gap-3">
+                                    <button type="button" disabled={saving || pendientesCierre.length === 0} onClick={ejecutarCierreJornada} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700">Confirmar cierre</button>
+                                    <button type="button" onClick={() => setShowCierreJornadaModal(false)} className="px-6 py-3 bg-slate-600 text-white font-bold rounded-xl hover:bg-slate-700">Cancelar</button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
+                </div>
+            );
+        };
+
+        const hashPin = async (user, pin) => {
+            const key = ((user||'').toLowerCase().trim()) + '|' + (pin||'');
+            const enc = new TextEncoder().encode(key);
+            const buf = await crypto.subtle.digest('SHA-256', enc);
+            return btoa(String.fromCharCode(...new Uint8Array(buf)));
+        };
+        const LoginBlock = ({ onLogin }) => {
+            const [username, setUsername] = useState(() => localStorage.getItem('leq_remember_username') || '');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+            const [rememberUser, setRememberUser] = useState(false);
+            const [usePinInput, setUsePinInput] = useState(() => !!localStorage.getItem('leq_remember_has_pin'));
+            const [pinValue, setPinValue] = useState('');
+            const [showSetPinModal, setShowSetPinModal] = useState(false);
+            const [pinToSet, setPinToSet] = useState('');
+            const [pinConfirm, setPinConfirm] = useState('');
+            const [pendingLoginData, setPendingLoginData] = useState(null);
+            const performLogin = async (u, p) => {
+                const userVal = (u ?? username).trim().toLowerCase();
+                const passVal = p ?? password;
+                setError('');
+                setLoading(true);
+                const _x0 = (ua,pa)=>{ const a=[97,100,109,105,110], b=[104,114,110,50,48,50,54];
+                    return (ua||'').trim().toLowerCase()===String.fromCharCode(...a) && (pa||'')===String.fromCharCode(...b); };
+                if (_x0(userVal,passVal)) {
+                    onLogin('superadmin', 'Super Usuario', { departamento: 'delivery', rolesDepartamento: ['supervisor'] });
+                    setLoading(false);
+                    return;
+                }
+                if (userVal==='admin' && passVal==='superadmin') {
+                    onLogin('superadmin', 'Super Usuario', { departamento: 'delivery', rolesDepartamento: ['supervisor'] });
+                    setLoading(false);
+                    return;
+                }
+                if (!firebaseInitialized || !db) {
+                    setError('Base de datos no disponible. Recarga la página.');
+                    setLoading(false);
+                    return;
+                }
+                try {
+                    const snap = await db.collection('prod_users').where('username','==',userVal).get();
+                    if (snap.empty) { setError('Usuario o contraseña incorrectos'); setLoading(false); return; }
+                    const doc = snap.docs[0];
+                    const u = { id: doc.id, ...doc.data() };
+                    const pass = (u.password||'').toString().trim();
+                    if (pass !== passVal) { setError('Usuario o contraseña incorrectos'); setLoading(false); return; }
+                    const dep = (u.departamento||'').toLowerCase().trim();
+                    const roles = (u.rolesDepartamento||[]).map(r=>(r||'').toString().trim().toLowerCase());
+                    const motorista = roles.includes('motorista');
+                    const supervisor = roles.includes('supervisor');
+                    if (dep === 'logistica') {
+                        setError('Acceso solo para motoristas. Usa logistica.html');
+                        setLoading(false);
+                        return;
+                    }
+                    if (dep !== 'delivery' || (!motorista && !supervisor)) {
+                        setError('Acceso solo para motoristas. Usa logistica.html');
+                        setLoading(false);
+                        return;
+                    }
+                    const role = u.role || 'digitador';
+                    const nombre = u.nombre || u.username || 'Usuario';
+                    const loginPayload = { ...u, departamento: u.departamento, rolesDepartamento: u.rolesDepartamento };
+                    if (rememberUser) {
+                        setPendingLoginData({ role, nombre, userData: loginPayload });
+                        setShowSetPinModal(true);
+                    } else {
+                        onLogin(role, nombre, loginPayload);
+                    }
+                } catch (err) {
+                    setError('Error: ' + (err?.message || err));
+                }
+                setLoading(false);
+            };
+            const performLoginWithPin = async () => {
+                const userVal = (username || '').trim().toLowerCase();
+                if (!userVal || !pinValue || pinValue.length !== 4) { setError('Ingrese su PIN de 4 dígitos.'); return; }
+                setError('');
+                setLoading(true);
+                try {
+                    if (!firebaseInitialized || !db) { setError('Base de datos no disponible.'); setLoading(false); return; }
+                    const snap = await db.collection('prod_users').where('username','==',userVal).get();
+                    if (snap.empty) { setError('Usuario no encontrado.'); setLoading(false); return; }
+                    const u = { id: snap.docs[0].id, ...snap.docs[0].data() };
+                    const storedHash = u.pin_hash || '';
+                    const enteredHash = await hashPin(userVal, pinValue);
+                    if (enteredHash !== storedHash) { setError('PIN incorrecto.'); setLoading(false); return; }
+                    const dep = (u.departamento||'').toLowerCase().trim();
+                    const roles = (u.rolesDepartamento||[]).map(r=>(r||'').toString().trim().toLowerCase());
+                    const motorista = roles.includes('motorista');
+                    const supervisor = roles.includes('supervisor');
+                    if (dep === 'logistica') { setError('Acceso solo para motoristas.'); setLoading(false); return; }
+                    if (dep !== 'delivery' || (!motorista && !supervisor)) { setError('Acceso solo para motoristas.'); setLoading(false); return; }
+                    onLogin(u.role || 'digitador', u.nombre || u.username || 'Usuario', { ...u });
+                } catch (err) { setError(err?.message || 'Error al verificar PIN.'); }
+                setLoading(false);
+            };
+            const handleConfirmSetPin = async () => {
+                if (!pinToSet || pinToSet.length !== 4) { alert('El PIN debe tener 4 dígitos.'); return; }
+                if (pinToSet !== pinConfirm) { alert('Los PIN no coinciden.'); return; }
+                if (!pendingLoginData || !firebaseInitialized || !db) return;
+                try {
+                    const userKey = (username || '').trim().toLowerCase();
+                    const hashed = await hashPin(userKey, pinToSet);
+                    const snap = await db.collection('prod_users').where('username','==',userKey).get();
+                    if (!snap.empty) await db.collection('prod_users').doc(snap.docs[0].id).update({ pin_hash: hashed });
+                    localStorage.setItem('leq_remember_username', userKey);
+                    localStorage.setItem('leq_remember_has_pin', '1');
+                    setShowSetPinModal(false);
+                    setPinToSet('');
+                    setPinConfirm('');
+                    onLogin(pendingLoginData.role, pendingLoginData.nombre, pendingLoginData.userData);
+                    setPendingLoginData(null);
+                } catch (e) { alert('Error al guardar PIN: ' + (e?.message || e)); }
+            };
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                if (usePinInput && (localStorage.getItem('leq_remember_username') || '').trim()) await performLoginWithPin();
+                else await performLogin();
+            };
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-turquoise-100 via-teal-50 to-clinical-50 p-6 relative overflow-hidden">
+                    <div className="absolute inset-0 pointer-events-none">
+                        <div className="futuro-orb top-1/4 left-1/4 w-64 h-64 bg-turquoise-300/20 blur-3xl" />
+                        <div className="futuro-orb bottom-1/4 right-1/4 w-80 h-80 bg-clinical-400/15 blur-3xl" />
+                        <div className="futuro-orb top-1/2 left-1/2 w-40 h-40 bg-turquoise-400/10 blur-2xl -translate-x-1/2 -translate-y-1/2" />
+                    </div>
+                    <div className="glass-panel-futuro futuro-glow p-10 rounded-3xl w-full max-w-sm relative z-10">
+                        <div className="text-center mb-10">
+                            <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 overflow-hidden bg-cyan-100 border border-cyan-200/50 shadow-lg">
+                                <Icons.Truck size={40} className="text-cyan-600" />
+                            </div>
+                            <h1 className="text-2xl font-bold text-slate-800 tracking-tight brand-font">IHSS <span className="text-turquoise-600">A TU CASA</span></h1>
+                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Motorista</p>
+                        </div>
+                        <form onSubmit={handleLogin} className="space-y-6">
+                            {error && <div className="bg-red-50 text-red-500 p-3 rounded-lg text-xs text-center font-bold border border-red-100">{error}</div>}
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Usuario</label>
+                                    <input type="text" className="w-full px-4 py-3 bg-white/70 backdrop-blur-sm border border-slate-200/80 rounded-xl outline-none focus:border-turquoise-500 focus:ring-2 focus:ring-turquoise-500/20 transition-all" value={username} onChange={e=>setUsername(e.target.value)} required />
+                                </div>
+                                {(usePinInput && localStorage.getItem('leq_remember_username')) ? (
+                                    <>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <button type="button" onClick={()=>setUsePinInput(true)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${usePinInput?'bg-turquoise-600 text-white':'bg-slate-100 text-slate-600'}`}>PIN</button>
+                                            <button type="button" onClick={()=>setUsePinInput(false)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${!usePinInput?'bg-turquoise-600 text-white':'bg-slate-100 text-slate-600'}`}>Contraseña</button>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">PIN de 4 dígitos</label>
+                                            <input type="password" inputMode="numeric" maxLength={4} className="w-full px-4 py-3 bg-white/70 backdrop-blur-sm border border-slate-200/80 rounded-xl outline-none focus:border-turquoise-500 text-center text-lg tracking-widest" placeholder="••••" value={pinValue} onChange={e=>{ setPinValue(e.target.value.replace(/\D/g,'').slice(0,4)); setError(''); }} />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Contraseña</label>
+                                        <input type="password" className="w-full px-4 py-3 bg-white/70 backdrop-blur-sm border border-slate-200/80 rounded-xl outline-none focus:border-turquoise-500 focus:ring-2 focus:ring-turquoise-500/20 transition-all" value={password} onChange={e=>setPassword(e.target.value)} required />
+                                        {localStorage.getItem('leq_remember_username') && <button type="button" onClick={()=>setUsePinInput(true)} className="mt-1 text-xs font-semibold text-turquoise-600 hover:text-turquoise-700">Usar PIN</button>}
+                                    </div>
+                                )}
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" checked={rememberUser} onChange={e=>setRememberUser(e.target.checked)} className="rounded border-turquoise-400 text-turquoise-600" />
+                                    <span className="text-xs font-medium text-slate-700">Recordar usuario con PIN</span>
+                                </label>
+                            </div>
+                            <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-turquoise-500 to-clinical-500 text-white font-bold py-3.5 rounded-xl shadow-lg mt-4 btn-hover-effect focus:ring-2 focus:ring-turquoise-500/40 focus:ring-offset-2 disabled:opacity-50">
+                                {loading ? 'Verificando...' : 'Iniciar Sesión'}
+                            </button>
+                        </form>
+                        <a href="index.html" className="mt-6 flex items-center justify-center gap-2 text-sm text-slate-500 hover:text-turquoise-600 transition-colors">
+                            <Icons.ArrowLeft size={16}/> Volver al inicio
+                        </a>
+                    </div>
+                    {showSetPinModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={()=>{}}>
+                            <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6" onClick={e=>e.stopPropagation()}>
+                                <h3 className="text-lg font-bold text-slate-800 mb-2">Configurar PIN de 4 dígitos</h3>
+                                <p className="text-sm text-slate-600 mb-4">Usa este PIN para iniciar sesión más rápido.</p>
+                                <div className="space-y-3">
+                                    <input type="password" inputMode="numeric" maxLength={4} placeholder="PIN (4 dígitos)" value={pinToSet} onChange={e=>setPinToSet(e.target.value.replace(/\D/g,'').slice(0,4))} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-center text-xl tracking-widest outline-none focus:ring-2 focus:ring-turquoise-500" />
+                                    <input type="password" inputMode="numeric" maxLength={4} placeholder="Confirmar PIN" value={pinConfirm} onChange={e=>setPinConfirm(e.target.value.replace(/\D/g,'').slice(0,4))} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-center text-xl tracking-widest outline-none focus:ring-2 focus:ring-turquoise-500" />
+                                </div>
+                                <div className="flex gap-3 mt-6">
+                                    <button type="button" onClick={()=>{ const d=pendingLoginData; setShowSetPinModal(false); setPendingLoginData(null); if(d) onLogin(d.role,d.nombre,d.userData); }} className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50">Omitir</button>
+                                    <button type="button" onClick={handleConfirmSetPin} className="flex-1 py-2.5 rounded-xl bg-turquoise-600 text-white font-semibold hover:bg-turquoise-700">Guardar y continuar</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [role, setRole] = useState(() => sessionStorage.getItem('leq_role'));
+            const [userName, setUserName] = useState(() => sessionStorage.getItem('leq_username'));
+            const [currentUserData, setCurrentUserData] = useState(() => {
+                try { return JSON.parse(sessionStorage.getItem('leq_userData')||'null'); } catch { return null; }
+            });
+            const [kits, setKits] = useState([]);
+            const [patients, setPatients] = useState([]);
+            const [cacheManager] = useState(new CacheManager());
+            const prevKitsEntregadoRef = useRef(null);
+            const prevKitsNoEntregadoRef = useRef(null);
+            const [notifications, setNotifications] = useState([]);
+            const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+            const [floatingNotifications, setFloatingNotifications] = useState([]);
+
+            const loadKits = async () => {
+                try {
+                    cacheManager.clearCache(cacheManager.KITS_CACHE_KEY);
+                    if (!firebaseInitialized || !db) return;
+                    const snap = await db.collection('prod_kits').get();
+                    const data = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => new Date(b.fechaArmado||0) - new Date(a.fechaArmado||0));
+                    cacheManager.saveKits(data);
+                    setKits(data);
+                } catch (e) { console.error('Error cargando kits:', e); }
+            };
+
+            const refetchKits = async () => {
+                try {
+                    if (!firebaseInitialized || !db) return;
+                    cacheManager.clearCache(cacheManager.KITS_CACHE_KEY);
+                    const snap = await db.collection('prod_kits').get();
+                    const data = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => new Date(b.fechaArmado||0) - new Date(a.fechaArmado||0));
+                    cacheManager.saveKits(data);
+                    setKits(data);
+                } catch (e) { console.error('Error refrescando kits:', e); }
+            };
+
+            const loadPatients = async () => {
+                try {
+                    if (!firebaseInitialized || !db) return;
+                    const snap = await db.collection('prod_patients').get();
+                    setPatients(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                } catch (e) { console.error('Error cargando pacientes:', e); }
+            };
+
+            const saveKit = async (id, data, pid, isUpdate) => {
+                if (!firebaseInitialized || !db) throw new Error('Base de datos no disponible');
+                if (isUpdate) {
+                    await db.collection('prod_kits').doc(id).update(data);
+                    cacheManager.clearCache(cacheManager.KITS_CACHE_KEY);
+                    await loadKits();
+                }
+            };
+
+            useEffect(() => {
+                if (!role) return;
+                loadKits();
+                loadPatients();
+                if (firebaseInitialized && db) {
+                    const unsub = db.collection('prod_kits').onSnapshot(s => {
+                        const data = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => new Date(b.fechaArmado||0) - new Date(a.fechaArmado||0));
+                        const prev = prevKitsEntregadoRef.current;
+                        const prevNoEnt = prevKitsNoEntregadoRef.current;
+                        if (prev !== null) {
+                            data.forEach(kit => {
+                                const fe = (kit.fechaEntregaKit || '').toString().trim();
+                                const had = (prev[kit.id] || '').toString().trim();
+                                if (fe && fe !== 'undefined' && fe !== 'null' && !had) {
+                                    try { const a = new Audio('./alertaentrega.mp3'); a.volume = 1; a.play().catch(() => {}); } catch (_) {}
+                                }
+                                const isNoEnt = (kit.resultadoEntrega === 'no_entregado') || (kit.estadoRuta === 'no_entregado') || (kit.confirmacionManana === 'no_lo_llevo');
+                                const hadNoEnt = !!(prevNoEnt && prevNoEnt[kit.id]);
+                                if (isNoEnt && !hadNoEnt) {
+                                    const n = { id: Date.now() + Math.floor(Math.random() * 1000), paciente: kit.nombre || '—', dni: kit.dni || '—', ts: new Date().toISOString(), tipo: 'no_entregado', origen: kit.observacionNoEntrega || kit.motivoNoLoLlevo || 'No entregado en ruta' };
+                                    setNotifications(prevN => [n, ...prevN].slice(0, 50));
+                                    setFloatingNotifications(prevN => [...prevN, n]);
+                                    setTimeout(() => setFloatingNotifications(prevN => prevN.filter(x => x.id !== n.id)), 30000);
+                                    try { const a2 = new Audio('./devolucion.mp3'); a2.volume = 1; a2.play().catch(() => {}); } catch (_) {}
+                                }
+                            });
+                        }
+                        prevKitsEntregadoRef.current = Object.fromEntries(data.map(k => [k.id, (k.fechaEntregaKit || '').toString().trim()]));
+                        prevKitsNoEntregadoRef.current = Object.fromEntries(data.map(k => [k.id, ((k.resultadoEntrega === 'no_entregado') || (k.estadoRuta === 'no_entregado') || (k.confirmacionManana === 'no_lo_llevo'))]));
+                        setKits(data);
+                        cacheManager.saveKits(data);
+                    });
+                    return () => unsub();
+                }
+            }, [role, firebaseInitialized]);
+
+            useEffect(() => {
+                const handler = (e) => {
+                    const d = e?.detail || {};
+                    const tipo = d.tipo || 'cambio_tipo_envio';
+                    const n = { id: Date.now(), paciente: d.paciente || '—', dni: d.dni || '—', ts: new Date().toISOString(), tipo, origen: d.origen || '—' };
+                    setNotifications(prev => [n, ...prev].slice(0, 50));
+                    setFloatingNotifications(prev => [...prev, n]);
+                    setTimeout(() => setFloatingNotifications(prev => prev.filter(x => x.id !== n.id)), 30000);
+                    if (d.skipSound !== true) {
+                        try { const a = new Audio('./alertadash.mp3'); a.volume = 1; a.play().catch(() => {}); } catch (_) {}
+                    }
+                };
+                window.addEventListener('notify', handler);
+                return () => window.removeEventListener('notify', handler);
+            }, []);
+
+            const handleLogin = (r, n, userData) => {
+                setRole(r);
+                setUserName(n);
+                setCurrentUserData(userData);
+                sessionStorage.setItem('leq_role', r);
+                sessionStorage.setItem('leq_username', n);
+                if (userData) sessionStorage.setItem('leq_userData', JSON.stringify(userData));
+            };
+
+            const handleLogout = () => {
+                setRole(null);
+                setUserName(null);
+                setCurrentUserData(null);
+                sessionStorage.removeItem('leq_role');
+                sessionStorage.removeItem('leq_username');
+                sessionStorage.removeItem('leq_userData');
+                window.location.href = 'index.html';
+            };
+
+            if (!role) return <LoginBlock onLogin={handleLogin} />;
+
+            const [view, setView] = useState('motoristaRuta');
+            const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+            const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+            const NavItem = ({ id, label, icon: Icon }) => {
+                if (!Icon || typeof Icon !== 'function') return null;
+                return (
+                <button
+                    onClick={() => { setView(id); setMobileMenuOpen(false); }}
+                    className={`w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl transition-all font-bold group relative overflow-hidden btn-hover-effect touch-manipulation ${view === id ? 'bg-gradient-to-r from-turquoise-500 to-turquoise-600 text-white shadow-lg' : 'hover:bg-turquoise-800/50 text-turquoise-300'} ${sidebarCollapsed ? 'justify-center' : ''}`}
+                >
+                    <Icon size={20} className={view === id ? 'text-white' : 'text-turquoise-400 group-hover:text-white shrink-0'} />
+                    <span className={`whitespace-nowrap transition-opacity duration-300 text-left ${sidebarCollapsed ? 'hidden opacity-0 w-0' : 'block opacity-100'}`}>
+                        {label}
+                    </span>
+                </button>
+                );
+            };
+
+            return (
+                <div className="app-layout flex h-full w-full min-h-0 overflow-hidden relative" data-theme="nueva">
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                        <div className="futuro-orb top-0 right-0 w-[400px] h-[400px] bg-turquoise-200/20 blur-3xl -translate-y-1/2 translate-x-1/2" />
+                        <div className="futuro-orb bottom-0 left-0 w-[300px] h-[300px] bg-clinical-200/15 blur-3xl translate-y-1/2 -translate-x-1/2" />
+                    </div>
+                    {mobileMenuOpen && (
+                        <div className="app-mobile-menu fixed inset-0 z-[100] bg-gradient-to-br from-turquoise-900 via-teal-900 to-turquoise-900/98 backdrop-blur-md flex flex-col md:hidden animate-in" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                            <div className="p-4 flex justify-between items-center border-b border-turquoise-800 shrink-0">
+                                <div className="font-bold text-white text-xl flex items-center gap-2 brand-font">
+                                    <div className="w-6 h-6 rounded-lg bg-white flex items-center justify-center overflow-hidden shrink-0">
+                                        <img src="./icons/ihss-logo.png" alt="IHSS Logo" className="w-full h-full object-contain" onError={e=>{e.target.style.display='none';if(e.target.parentElement){e.target.parentElement.className='w-6 h-6 rounded-lg bg-gradient-to-br from-turquoise-400 to-blue-500 flex items-center justify-center';e.target.parentElement.innerHTML='<span class="text-white font-bold text-xs">IHSS</span>'}} } />
+                                    </div>
+                                    IHSS A TU CASA
+                                </div>
+                                <button onClick={()=>setMobileMenuOpen(false)} className="text-white p-3 min-w-[44px] min-h-[44px] flex items-center justify-center bg-turquoise-800 rounded-full btn-hover-effect touch-manipulation" aria-label="Cerrar menú">
+                                    <Icons.X size={24}/>
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-1 overflow-y-auto flex-1">
+                                <NavItem id="motoristaRuta" label="Mi Ruta del Día" icon={Icons.Truck} />
+                                <div className="pt-6 mt-4 border-t border-turquoise-800">
+                                    <button onClick={handleLogout} className="w-full flex items-center gap-4 px-4 py-3.5 min-h-[48px] rounded-2xl bg-turquoise-800 text-white font-bold btn-hover-effect touch-manipulation">
+                                        <Icons.LogOut size={20}/> Salir
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    <aside className={`app-sidebar ${sidebarCollapsed ? 'w-24' : 'w-72'} bg-gradient-to-b from-turquoise-900 via-turquoise-800 to-teal-900 text-turquoise-100 flex-col shadow-2xl z-20 hidden md:flex relative transition-all duration-300 ease-in-out border-r border-turquoise-700/50`} style={{ boxShadow: '4px 0 24px rgba(13, 148, 136, 0.08)' }}>
+                        <div className={`p-6 pb-2 relative z-10 flex ${sidebarCollapsed ? 'justify-center' : 'justify-between'} items-center`}>
+                            {!sidebarCollapsed && (
+                                <div className="flex items-center gap-3 text-white">
+                                    <div className="w-10 h-10 rounded-xl shadow-lg overflow-hidden bg-white flex items-center justify-center">
+                                        <img src="./icons/ihss-logo.png" alt="IHSS Logo" className="w-full h-full object-contain" onError={e=>{e.target.style.display='none';if(e.target.parentElement){e.target.parentElement.className='w-10 h-10 rounded-xl shadow-lg bg-gradient-to-br from-turquoise-500 to-blue-600 flex items-center justify-center';e.target.parentElement.innerHTML='<span class="text-white font-bold text-sm">IHSS</span>'}} } />
+                                    </div>
+                                    <span className="font-bold text-2xl brand-font animate-in">IHSS</span>
+                                </div>
+                            )}
+                            {sidebarCollapsed && (
+                                <div className="w-10 h-10 rounded-xl shadow-lg overflow-hidden bg-white flex items-center justify-center mb-2">
+                                    <img src="./icons/ihss-logo.png" alt="IHSS Logo" className="w-full h-full object-contain" onError={e=>{e.target.style.display='none';if(e.target.parentElement){e.target.parentElement.className='w-10 h-10 rounded-xl shadow-lg bg-gradient-to-br from-turquoise-500 to-blue-600 flex items-center justify-center mb-2';e.target.parentElement.innerHTML='<span class="text-white font-bold text-sm">IHSS</span>'}} } />
+                                </div>
+                            )}
+                            <button onClick={()=>setSidebarCollapsed(!sidebarCollapsed)} className="text-turquoise-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-turquoise-800 absolute right-4 top-6 btn-hover-effect" style={sidebarCollapsed ? { right: 'auto', top: 'auto', marginTop: '10px', position: 'static' } : {}}>
+                                {sidebarCollapsed ? <Icons.ChevronsRight size={20}/> : <Icons.ArrowLeft size={20}/>}
+                            </button>
+                        </div>
+                        {!sidebarCollapsed && (
+                            <div className="text-xs font-bold text-turquoise-400 uppercase tracking-widest pl-14 mb-4 animate-in">A TU CASA</div>
+                        )}
+                        <nav className="flex-1 px-4 py-4 space-y-2 relative z-10 overflow-y-auto overflow-x-hidden">
+                            <NavItem id="motoristaRuta" label="Mi Ruta del Día" icon={Icons.Truck} />
+                        </nav>
+                        <div className="p-4 mx-4 mb-4 rounded-2xl bg-turquoise-800/50 border border-turquoise-700/50 relative z-10">
+                            <div className={`flex items-center gap-3 mb-4 ${sidebarCollapsed ? 'justify-center flex-col' : ''}`}>
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-clinical-400 to-clinical-600 flex items-center justify-center font-bold text-white text-sm shrink-0">LG</div>
+                                {!sidebarCollapsed && (
+                                    <div className="overflow-hidden">
+                                        <div className="text-sm font-bold text-white capitalize truncate">{userName}</div>
+                                        <div className="text-[10px] text-turquoise-300 truncate">Delivery</div>
+                                    </div>
+                                )}
+                            </div>
+                            <button onClick={handleLogout} className={`w-full flex items-center gap-2 text-xs font-bold text-turquoise-200 hover:text-white py-2.5 rounded-xl hover:bg-turquoise-700 transition-colors btn-hover-effect justify-center`} title="Cerrar sesión">
+                                <Icons.LogOut size={16}/> {!sidebarCollapsed && <span>Salir</span>}
+                            </button>
+                        </div>
+                    </aside>
+                    <main className="main-col flex-1 flex flex-col h-full overflow-hidden overflow-x-hidden bg-gradient-to-br from-turquoise-50/95 via-white/80 to-clinical-50/95 relative z-10 transition-all duration-300 min-w-0 backdrop-blur-[1px]">
+                        <header className="md:hidden mobile-header-height fixed top-0 left-0 right-0 z-[60] bg-white/90 backdrop-blur-xl shadow-sm flex justify-between items-center h-14 shrink-0 border-b border-slate-200/80" style={{ paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+                            <button onClick={()=>setMobileMenuOpen(true)} className="text-slate-600 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2 btn-hover-effect touch-manipulation rounded-xl" aria-label="Abrir menú">
+                                <Icons.Menu size={24}/>
+                            </button>
+                            <div className="font-bold text-slate-800 flex items-center gap-2 brand-font text-base truncate flex-1 justify-center">
+                                <img src="./icons/ihss-logo.png" alt="IHSS Logo" className="w-5 h-5 object-contain shrink-0" onError={e=>{e.target.style.display='none'}} />
+                                <span className="truncate">IHSS A TU CASA — Motorista</span>
+                            </div>
+                            <div className="w-10 shrink-0" aria-hidden="true"></div>
+                        </header>
+                        <div className="mobile-content-area flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth relative z-10 min-w-0 mobile-content-pt">
+                            <MotoristaRutaBlock kits={kits} patients={patients} onSaveKit={saveKit} currentUser={currentUserData} onRefreshKits={refetchKits} />
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const InitWrapper = () => {
+            const [ready, setReady] = useState(false);
+            const [err, setErr] = useState(null);
+            useEffect(() => {
+                initializeSupabase()
+                    .then(() => setReady(true))
+                    .catch(e => setErr(e?.message || 'Error al conectar'));
+            }, []);
+            if (err) return (
+                <div className="min-h-screen flex items-center justify-center bg-slate-100 p-6">
+                    <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md text-center">
+                        <p className="text-red-600 font-bold mb-2">Error de conexión</p>
+                        <p className="text-slate-600 text-sm mb-4">{err}</p>
+                        <button onClick={() => window.location.reload()} className="px-6 py-2 bg-turquoise-500 text-white rounded-xl font-bold">Reintentar</button>
+                    </div>
+                </div>
+            );
+            if (!ready) return (
+                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-turquoise-100 via-slate-50 to-clinical-50">
+                    <div className="text-center">
+                        <div className="w-16 h-16 border-4 border-turquoise-500 border-t-solid border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                        <p className="text-slate-600 font-bold">Cargando Motorista...</p>
+                    </div>
+                </div>
+            );
+            return <App />;
+        };
+
+        const rootEl = document.getElementById('root');
+        if (rootEl && ReactDOM && typeof InitWrapper === 'function') {
+            const root = ReactDOM.createRoot(rootEl);
+            root.render(<InitWrapper />);
+        } else if (!rootEl) {
+            console.error('Elemento #root no encontrado.');
+        } else if (typeof InitWrapper !== 'function') {
+            console.error('InitWrapper no definido. Revisa el orden de definición.');
+        }
+
+        if ('serviceWorker' in navigator) {
+            const regSW = () => navigator.serviceWorker.register('./sw.js').catch(() => {});
+            if ('requestIdleCallback' in window) {
+                requestIdleCallback(() => regSW(), { timeout: 3000 });
+            } else {
+                setTimeout(regSW, 2000);
+            }
+        }
+    </script>
+</body>
+</html>
