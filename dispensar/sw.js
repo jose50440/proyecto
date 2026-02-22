@@ -4,6 +4,7 @@ const urlsToCache = [
   './',
   './index.html',
   './logistica.html',
+  './motorista.html',
   './manifest.webmanifest',
   './supabase-db-adapter.js',
   './qr-local.js'

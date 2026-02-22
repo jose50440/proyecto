@@ -10,6 +10,7 @@
   "theme_color": "#194490",
   "scope": "./",
   "lang": "es-HN",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "./icons/icon.svg",

@@ -11,7 +11,7 @@ La app está configurada como **PWA (Progressive Web App)** descargable en Andro
 - Abre la app en **Safari** (no en Chrome)
 - Toca el botón **Compartir** (cuadrado con flecha hacia arriba)
 - Selecciona **"Agregar a pantalla de inicio"**
-- **No se requiere cuenta de Apple ni verificación** para añadirla al inicio
+- **No se requiere cuenta de Apple, iCloud ni verificación** para instalarla
 
 ## Requisitos
 - La app debe servirse por **HTTPS** (o localhost en desarrollo)
