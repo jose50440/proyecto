@@ -2980,7 +2980,6 @@
                     oficio: { label: 'Oficio (HN)', page: '8.5in 13in' }
                 };
                 const selectedPaper = paperMap[printPaper] || paperMap.carta;
-                const dateLabel = formatDate(selectedDay);
                 const rowsHtml = rowsBase.map((r, i) => `
                     <tr>
                         <td>${i + 1}</td>
@@ -2996,12 +2995,25 @@
                 const css = `
                     @page { size: ${selectedPaper.page}; margin: 10mm; }
                     body { font-family: Arial, sans-serif; margin: 0; color: #111827; }
-                    h1 { font-size: 16px; margin: 0 0 6px; }
-                    .meta { font-size: 12px; margin-bottom: 10px; color: #374151; }
                     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-                    th, td { border: 1px solid #111827; font-size: 10px; padding: 6px 4px; vertical-align: middle; word-wrap: break-word; }
-                    th { background: #111827; color: #fff; text-transform: uppercase; font-weight: 700; }
-                    th:nth-child(1), td:nth-child(1) { width: 5%; text-align: center; }
+                    th, td {
+                        border: 1px solid #1f2937;
+                        font-size: 10px;
+                        padding: 7px 5px;
+                        vertical-align: middle;
+                        word-wrap: break-word;
+                        text-align: center;
+                    }
+                    thead th {
+                        background: #0f172a;
+                        color: #ffffff;
+                        text-transform: uppercase;
+                        font-weight: 700;
+                        letter-spacing: 0.4px;
+                        border-color: #0b1220;
+                    }
+                    tbody tr:nth-child(even) { background: #f8fafc; }
+                    th:nth-child(1), td:nth-child(1) { width: 5%; }
                     th:nth-child(2), td:nth-child(2) { width: 11%; }
                     th:nth-child(3), td:nth-child(3) { width: 22%; }
                     th:nth-child(4), td:nth-child(4) { width: 15%; }
@@ -3011,8 +3023,6 @@
                     th:nth-child(8), td:nth-child(8) { width: 10%; }
                 `;
                 const bodyHtml = `
-                    <h1>Programación de Ruta — ${dateLabel}</h1>
-                    <div class="meta">Formato: ${selectedPaper.label} | Total registros: ${rowsBase.length}</div>
                     <table>
                         <thead>
                             <tr>
