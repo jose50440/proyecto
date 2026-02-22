@@ -359,10 +359,10 @@
                                     ) : (
                                         <div className="divide-y divide-slate-100">
                                             {notificationsToday.map(n => (
-                                                <div key={n.id} className={`p-3 hover:bg-slate-50 ${n.tipo === 'no_entregado' ? 'bg-red-50/40' : ''}`}>
+                                                <div key={n.id} className={`p-3 hover:bg-slate-50 ${n.tipo === 'no_entregado' ? 'bg-red-50/40' : n.tipo === 'kit_entregado' ? 'bg-emerald-50/40' : ''}`}>
                                                     <div className="font-medium text-slate-800">{n.paciente}</div>
                                                     <div className="text-xs text-slate-500">DNI: {n.dni}</div>
-                                                    <div className={`text-xs mt-1 ${n.tipo === 'no_entregado' ? 'text-red-700 font-semibold' : 'text-cyan-600'}`}>{n.origen}</div>
+                                                    <div className={`text-xs mt-1 ${n.tipo === 'no_entregado' ? 'text-red-700 font-semibold' : n.tipo === 'kit_entregado' ? 'text-emerald-700 font-semibold' : 'text-cyan-600'}`}>{n.origen}</div>
                                                 </div>
                                             ))}
                                         </div>
@@ -2249,12 +2249,14 @@
             const [savingPatient, setSavingPatient] = useState(false);
             const [newPatient, setNewPatient] = useState({
                 dni: '',
+                nAfiliacion: '',
                 nombre: '',
                 telefono: '',
+                familiar: '',
+                telefonoFamiliar: '',
                 direccion: '',
-                municipio: '',
-                tipoAfiliado: '',
-                edad: ''
+                descripcionMunicipio: '',
+                tipoAfiliado: 'AFILIADO DIRECTO'
             });
             const rolesDep = (currentUser?.rolesDepartamento || []).map(r => (r || '').toString().trim().toLowerCase());
             const canCreateManualDh = (role || '').toLowerCase() === 'supervisor' || rolesDep.includes('supervisor');
@@ -2334,21 +2336,31 @@
                     return;
                 }
                 const payload = {
-                    dni,
-                    nombre,
+                    dni: (newPatient.dni || '').trim(),
+                    nAfiliacion: (newPatient.dni || '').trim(),
+                    nombre: (newPatient.nombre || '').trim().toUpperCase(),
                     telefono: (newPatient.telefono || '').trim(),
-                    direccion: (newPatient.direccion || '').trim(),
-                    municipio: (newPatient.municipio || '').trim(),
-                    tipoAfiliado: (newPatient.tipoAfiliado || '').trim(),
-                    edad: (newPatient.edad || '').toString().trim(),
-                    creationSource: 'manual',
-                    createdAt: new Date().toISOString()
+                    familiar: (newPatient.familiar || '').trim().toUpperCase(),
+                    telefonoFamiliar: (newPatient.telefonoFamiliar || '').trim(),
+                    direccion: (newPatient.direccion || '').trim().toUpperCase(),
+                    descripcionMunicipio: (newPatient.descripcionMunicipio || '').trim().toUpperCase(),
+                    tipoAfiliado: (newPatient.tipoAfiliado || 'AFILIADO DIRECTO').trim()
                 };
                 setSavingPatient(true);
                 try {
                     await onCreatePatient(payload);
                     setShowCreateModal(false);
-                    setNewPatient({ dni: '', nombre: '', telefono: '', direccion: '', municipio: '', tipoAfiliado: '', edad: '' });
+                    setNewPatient({
+                        dni: '',
+                        nAfiliacion: '',
+                        nombre: '',
+                        telefono: '',
+                        familiar: '',
+                        telefonoFamiliar: '',
+                        direccion: '',
+                        descripcionMunicipio: '',
+                        tipoAfiliado: 'AFILIADO DIRECTO'
+                    });
                     if (onRefreshPatients) onRefreshPatients();
                 } catch (err) {
                     alert('Error al crear derechohabiente: ' + (err?.message || err));
@@ -2396,7 +2408,7 @@
                                             </div>
                                             <div className="text-sm text-slate-500 flex flex-wrap gap-3 mt-1">
                                                 <span>DNI: {p.dni || '—'}</span>
-                                                <span>Municipio: {p.municipio || '—'}</span>
+                                                <span>Municipio: {p.descripcionMunicipio || p.municipio || '—'}</span>
                                             </div>
                                         </div>
                                         <div className="shrink-0">
@@ -2411,37 +2423,113 @@
                     </div>
 
                     {showCreateModal && (
-                        <Modal isOpen={true} onClose={() => setShowCreateModal(false)} title="Nuevo Derechohabiente (manual)" maxWidth="max-w-2xl">
+                        <Modal isOpen={true} onClose={() => setShowCreateModal(false)} title="Nuevo Derechohabiente" maxWidth="max-w-2xl">
                             <form onSubmit={guardarPacienteManual} className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">DNI *</label>
-                                        <input type="text" required value={newPatient.dni} onChange={e => setNewPatient({ ...newPatient, dni: e.target.value })} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Nombre *</label>
-                                        <input type="text" required value={newPatient.nombre} onChange={e => setNewPatient({ ...newPatient, nombre: e.target.value })} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Teléfono</label>
-                                        <input type="text" value={newPatient.telefono} onChange={e => setNewPatient({ ...newPatient, telefono: e.target.value })} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Edad</label>
-                                        <input type="text" value={newPatient.edad} onChange={e => setNewPatient({ ...newPatient, edad: e.target.value })} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Municipio</label>
-                                        <input type="text" value={newPatient.municipio} onChange={e => setNewPatient({ ...newPatient, municipio: e.target.value })} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white" />
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">DNI <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
+                                            required
+                                            className="w-full p-2.5 rounded-xl border border-slate-200 text-sm"
+                                            value={newPatient.dni}
+                                            onChange={e => {
+                                                const v = (e.target.value || '').toUpperCase();
+                                                setNewPatient({ ...newPatient, dni: v, nAfiliacion: v });
+                                            }}
+                                            maxLength={15}
+                                        />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tipo afiliado</label>
-                                        <input type="text" value={newPatient.tipoAfiliado} onChange={e => setNewPatient({ ...newPatient, tipoAfiliado: e.target.value })} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white" />
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Afiliación</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-slate-50"
+                                            value={newPatient.nAfiliacion}
+                                            readOnly
+                                            title="La afiliación es la misma que el DNI"
+                                        />
                                     </div>
-                                    <div className="md:col-span-2">
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Dirección</label>
-                                        <input type="text" value={newPatient.direccion} onChange={e => setNewPatient({ ...newPatient, direccion: e.target.value })} className="w-full p-2.5 border rounded-lg text-sm border-slate-200 bg-white" />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Nombre Completo <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        required
+                                        className="w-full p-2.5 rounded-xl border border-slate-200 text-sm"
+                                        value={newPatient.nombre}
+                                        onChange={e => setNewPatient({ ...newPatient, nombre: (e.target.value || '').toUpperCase() })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Teléfono</label>
+                                    <input
+                                        type="text"
+                                        inputMode="tel"
+                                        className="w-full p-2.5 rounded-xl border border-slate-200 text-sm"
+                                        value={newPatient.telefono}
+                                        onChange={e => setNewPatient({ ...newPatient, telefono: e.target.value })}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Familiar</label>
+                                        <input
+                                            type="text"
+                                            className="w-full p-2.5 rounded-xl border border-slate-200 text-sm"
+                                            value={newPatient.familiar}
+                                            onChange={e => setNewPatient({ ...newPatient, familiar: (e.target.value || '').toUpperCase() })}
+                                        />
                                     </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Tel. Familiar</label>
+                                        <input
+                                            type="text"
+                                            inputMode="tel"
+                                            className="w-full p-2.5 rounded-xl border border-slate-200 text-sm"
+                                            value={newPatient.telefonoFamiliar}
+                                            onChange={e => setNewPatient({ ...newPatient, telefonoFamiliar: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Dirección</label>
+                                    <input
+                                        type="text"
+                                        className="w-full p-2.5 rounded-xl border border-slate-200 text-sm"
+                                        value={newPatient.direccion}
+                                        onChange={e => setNewPatient({ ...newPatient, direccion: (e.target.value || '').toUpperCase() })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Descripción Municipio</label>
+                                    <input
+                                        type="text"
+                                        className="w-full p-2.5 rounded-xl border border-slate-200 text-sm"
+                                        value={newPatient.descripcionMunicipio}
+                                        onChange={e => setNewPatient({ ...newPatient, descripcionMunicipio: (e.target.value || '').toUpperCase() })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Tipo de Afiliado</label>
+                                    <select
+                                        className="w-full p-2.5 rounded-xl border border-slate-200 text-sm bg-white outline-none focus:border-turquoise-500"
+                                        value={newPatient.tipoAfiliado}
+                                        onChange={e => setNewPatient({ ...newPatient, tipoAfiliado: e.target.value })}
+                                    >
+                                        <option value="AFILIADO DIRECTO">AFILIADO DIRECTO</option>
+                                        <option value="JUBILADO">JUBILADO</option>
+                                        <option value="PENSIONADO">PENSIONADO</option>
+                                        <option value="BENEFICIARIA PADRE">BENEFICIARIA PADRE</option>
+                                        <option value="BENEFICIARIA(O) COMPAÑERA(O)">BENEFICIARIA(O) COMPAÑERA(O)</option>
+                                        <option value="BENEFICIARIA(O) ESPOSA(O)">BENEFICIARIA(O) ESPOSA(O)</option>
+                                        <option value="BENEFICIARIA(O) HIJO(A)">BENEFICIARIA(O) HIJO(A)</option>
+                                    </select>
+                                </div>
+                                <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-3">
+                                    Se guardará en reporte manual con el usuario creador.
                                 </div>
                                 <div className="flex justify-end gap-3 pt-2">
                                     <button type="button" onClick={() => setShowCreateModal(false)} className="btn-list-action px-6 bg-slate-600 text-white hover:bg-slate-700 transition-colors btn-hover-effect">Cancelar</button>
@@ -3084,7 +3172,42 @@
             };
             const savePatientManual = async (data) => {
                 if (!firebaseInitialized || !db) throw new Error('Base de datos no disponible');
-                await db.collection('prod_patients').add(data);
+                const allowedFields = ['dni', 'nAfiliacion', 'nombre', 'telefono', 'familiar', 'telefonoFamiliar', 'direccion', 'descripcionMunicipio', 'tipoAfiliado', 'agenteContactCenter', 'usuarioRevisionAsignacion'];
+                const cleanData = {};
+                allowedFields.forEach(field => {
+                    if (Object.prototype.hasOwnProperty.call(data || {}, field)) {
+                        cleanData[field] = data[field] ?? '';
+                    }
+                });
+                if (cleanData.dni) cleanData.nAfiliacion = cleanData.dni;
+
+                const serverTs = (typeof firebase !== 'undefined' && firebase?.firestore?.FieldValue?.serverTimestamp)
+                    ? firebase.firestore.FieldValue.serverTimestamp()
+                    : new Date().toISOString();
+                const byUser = (currentUserData && (currentUserData.nombre || currentUserData.email || currentUserData.username)) || 'sistema';
+
+                const created = await db.collection('prod_patients').add({
+                    ...cleanData,
+                    creationSource: 'manual',
+                    createdAt: serverTs
+                });
+
+                try {
+                    await db.collection('prod_patient_reports').add({
+                        type: 'manual',
+                        patientId: created?.id || '',
+                        dni: cleanData.dni || '',
+                        nombre: cleanData.nombre || '',
+                        telefono: cleanData.telefono || '',
+                        direccion: cleanData.direccion || '',
+                        descripcionMunicipio: cleanData.descripcionMunicipio || '',
+                        tipoAfiliado: cleanData.tipoAfiliado || '',
+                        at: serverTs,
+                        by: byUser
+                    });
+                } catch (e) {
+                    console.warn('Reporte manual no guardado:', e);
+                }
                 await loadPatients();
             };
 
@@ -3103,6 +3226,10 @@
                                 const fe = (kit.fechaEntregaKit || '').toString().trim();
                                 const had = (prev[kit.id] || '').toString().trim();
                                 if (fe && fe !== 'undefined' && fe !== 'null' && !had) {
+                                    const n = { id: Date.now() + Math.floor(Math.random() * 1000), paciente: kit.nombre || '—', dni: kit.dni || '—', ts: new Date().toISOString(), tipo: 'kit_entregado', origen: 'Entregado en ' + (((kit.deliveryMode || '').toLowerCase() === 'ruta') ? 'Ruta' : 'Ventanilla') };
+                                    setNotifications(prevN => [n, ...prevN].slice(0, 50));
+                                    setFloatingNotifications(prevN => [...prevN, n]);
+                                    setTimeout(() => setFloatingNotifications(prevN => prevN.filter(x => x.id !== n.id)), 30000);
                                     try { const a = new Audio('./alertaentrega.mp3'); a.volume = 1; a.play().catch(() => {}); } catch (_) {}
                                 }
                                 const isNoEnt = (kit.resultadoEntrega === 'no_entregado') || (kit.estadoRuta === 'no_entregado') || (kit.confirmacionManana === 'no_lo_llevo');

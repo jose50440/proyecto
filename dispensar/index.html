@@ -2041,7 +2041,6 @@
             const isRev = userDept === 'farmacia' && userRoles.includes('revision y asignacion');
             const isCC = userDept === 'contact center' && userRoles.includes('agente contact center');
             const isAdmin = role === 'admin' || role === 'superadmin';
-            const [calendarView, setCalendarView] = useState('years');
             const [selectedYear, setSelectedYear] = useState(Math.max(2026, new Date().getFullYear()));
             const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
             const [selectedDay, setSelectedDay] = useState(null);
@@ -2445,53 +2444,52 @@
 
             return (
                 <div className="w-full min-w-0 max-w-6xl mx-auto space-y-6 animate-in">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                        <h2 className="text-2xl md:text-3xl font-bold text-slate-800 brand-font tracking-tight">Calendario</h2>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-800 brand-font">Calendario</h2>
+                            <p className="text-sm text-slate-500 mt-1">
+                                {isAdmin ? 'Vista consolidada por Revisión/Asignación y Contact Center.' : isCC ? 'Seguimiento de confirmaciones del Contact Center.' : 'Seguimiento de trabajo y semáforos de Revisión y Asignación.'}
+                            </p>
+                        </div>
                         <button onClick={() => setView('pacientes')} className="px-4 py-2.5 rounded-xl border border-slate-200 hover:border-turquoise-300 hover:bg-turquoise-50 text-sm font-bold text-slate-600 flex items-center gap-2 transition-all">
                             <Icons.Users size={18}/> Ir a Pacientes
                         </button>
                     </div>
-                    <div className="bg-white/80 backdrop-blur rounded-3xl shadow-soft border border-slate-100 overflow-hidden">
-                        {calendarView === 'years' && (
-                            <div className="p-6 md:p-8">
-                                <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Seleccione el año</h4>
-                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                                    {yearOptions.map(year => (
-                                        <button key={year} onClick={() => { setSelectedYear(year); setCalendarView('months'); }} className="p-4 md:p-5 rounded-2xl border-2 border-slate-200 hover:border-turquoise-400 hover:bg-turquoise-50/80 transition-all text-center font-bold text-slate-700 hover:text-turquoise-600 text-lg">
-                                            {year}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {calendarView === 'months' && (
-                            <div className="p-6 md:p-8">
-                                <div className="flex justify-between items-center mb-6">
-                                    <button onClick={() => setCalendarView('years')} className="text-slate-400 hover:text-slate-600 flex items-center gap-2 text-sm font-bold"><Icons.ArrowLeft size={18}/> Años</button>
-                                    <h4 className="font-bold text-xl text-slate-800">{selectedYear}</h4>
-                                    <div className="w-24" />
-                                </div>
-                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                    <div className="bg-white rounded-3xl shadow-soft overflow-hidden border-l-4 border-l-emerald-500">
+                        <div className="p-5 border-b border-emerald-200 bg-emerald-50/80 flex flex-wrap items-center gap-3 justify-between">
+                            <div className="flex items-center gap-3">
+                                <select
+                                    value={selectedYear}
+                                    onChange={e => { setSelectedYear(parseInt(e.target.value, 10)); setSelectedDay(null); }}
+                                    className="p-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold"
+                                >
+                                    {yearOptions.map(year => <option key={year} value={year}>{year}</option>)}
+                                </select>
+                                <select
+                                    value={selectedMonth}
+                                    onChange={e => { setSelectedMonth(parseInt(e.target.value, 10)); setSelectedDay(null); }}
+                                    className="p-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold"
+                                >
                                     {['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].map((m, i) => (
-                                        <button key={i} onClick={() => { setSelectedMonth(i + 1); setCalendarView('days'); }} className="p-4 rounded-2xl border-2 border-slate-200 hover:border-turquoise-400 hover:bg-turquoise-50/80 transition-all text-center font-bold text-slate-700 hover:text-turquoise-600">
-                                            {m}
-                                        </button>
+                                        <option key={i + 1} value={i + 1}>{m}</option>
                                     ))}
-                                </div>
+                                </select>
                             </div>
-                        )}
-                        {calendarView === 'days' && (
-                            <div className="p-6 md:p-8">
-                                <div className="flex justify-between items-center mb-6">
-                                    <button onClick={() => setCalendarView('months')} className="text-slate-400 hover:text-slate-600 flex items-center gap-2 text-sm font-bold"><Icons.ArrowLeft size={18}/> Meses</button>
-                                    <h4 className="font-bold text-xl text-slate-800">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 relative">
+                                <span className="text-xs font-bold text-slate-500 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"/> Verde</span>
+                                <span className="text-xs font-bold text-slate-500 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"/> Naranja</span>
+                                <span className="text-xs font-bold text-slate-500 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"/> Rojo</span>
+                                <span className="text-xs font-bold text-slate-500 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"/> Sugerencia</span>
+                            </div>
+                        </div>
+                        <div className="p-5">
+                            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-sm font-semibold text-emerald-800">
                                         {['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][selectedMonth - 1]} {selectedYear}
-                                    </h4>
-                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 relative">
-                                        <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"/> Verde</span>
-                                        <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"/> Naranja</span>
-                                        <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"/> Rojo</span>
-                                        <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"/> Sugerencia</span>
+                                    </span>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 relative">
                                         <details className="relative group">
                                             <summary className="text-xs font-bold text-slate-500 cursor-pointer hover:text-turquoise-600 list-none flex items-center gap-1 [&::-webkit-details-marker]:hidden">
                                                 <span className="underline decoration-dotted">¿Qué significan?</span>
@@ -2520,36 +2518,35 @@
                                                 )}
                                             </div>
                                         </details>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-7 gap-1.5 md:gap-2 mb-2">
-                                    {['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map(l => <div key={l} className="text-center text-xs font-bold text-slate-500 py-2">{l}</div>)}
-                                </div>
-                                <div className="grid grid-cols-7 gap-1.5 md:gap-2">
-                                    {Array.from({ length: new Date(selectedYear, selectedMonth - 1, 1).getDay() }, (_, i) => <div key={`e${i}`} />)}
-                                    {days.map(({ day, dateStr, count, status }) => (
-                                        <button
-                                            key={day}
-                                            onClick={() => openDayModal(dateStr)}
-                                            className={`p-2.5 md:p-3 rounded-xl border-2 transition-all text-center font-bold text-sm ${
-                                                status === 'red' ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100' :
-                                                status === 'orange' ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100' :
-                                                status === 'blue' ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100' :
-                                                'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
-                                            } ${selectedDay === dateStr ? 'ring-2 ring-offset-2 ring-turquoise-500' : ''}`}
-                                        >
-                                            <div>{day}</div>
-                                            {count > 0 && (
-                                                <div className="flex items-center justify-center gap-1 mt-0.5">
-                                                    <span className={`w-1.5 h-1.5 rounded-full ${status === 'red' ? 'bg-red-500' : status === 'orange' ? 'bg-amber-500' : status === 'blue' ? 'bg-blue-500' : 'bg-green-500'}`} />
-                                                    <span className="text-[10px] md:text-xs">{count}</span>
-                                                </div>
-                                            )}
-                                        </button>
-                                    ))}
                                 </div>
                             </div>
-                        )}
+                            <div className="grid grid-cols-7 gap-2 mb-2">
+                                {['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map(l => <div key={l} className="text-center text-xs font-bold text-slate-500 py-2">{l}</div>)}
+                            </div>
+                            <div className="grid grid-cols-7 gap-2">
+                                {Array.from({ length: new Date(selectedYear, selectedMonth - 1, 1).getDay() }, (_, i) => <div key={`e${i}`} />)}
+                                {days.map(({ day, dateStr, count, status }) => (
+                                    <button
+                                        key={day}
+                                        onClick={() => openDayModal(dateStr)}
+                                        className={`p-2.5 md:p-3 rounded-xl border-2 transition-all text-center font-bold text-sm ${
+                                            status === 'red' ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100' :
+                                            status === 'orange' ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100' :
+                                            status === 'blue' ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100' :
+                                            'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+                                        } ${selectedDay === dateStr ? 'ring-2 ring-offset-2 ring-turquoise-500' : ''}`}
+                                    >
+                                        <div>{day}</div>
+                                        {count > 0 && (
+                                            <div className="flex items-center justify-center gap-1 mt-0.5">
+                                                <span className={`w-1.5 h-1.5 rounded-full ${status === 'red' ? 'bg-red-500' : status === 'orange' ? 'bg-amber-500' : status === 'blue' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                                                <span className="text-[10px] md:text-xs">{count}</span>
+                                            </div>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
 
                     {selectedDay && (
@@ -14929,23 +14926,31 @@ Responde en formato JSON con esta estructura:
                                 if (prev !== null && meta.userName) {
                                     data.forEach(kit => {
                                         const p = prev[kit.id] || {};
+                                        const pt = patientsList.find(px => px.id === kit.patientId);
                                         const kitCC = norm(kit.contactCenter);
+                                        const assignedCC = norm(pt?.agenteContactCenter || kit.contactCenter);
                                         const kitDevuelto = !!kit.devueltoPorContactCenter;
                                         const kitFE = (kit.fechaEntregaKit || '').toString().trim();
+                                        const kitNoEnt = !!((kit.resultadoEntrega === 'no_entregado') || (kit.estadoRuta === 'no_entregado') || (kit.confirmacionManana === 'no_lo_llevo'));
+                                        const prevNoEnt = !!(p.noEntregado);
                                         if (meta.isCC && kitCC === meta.userName && (p.contactCenter || '') !== kitCC) {
                                             window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'asignacion', paciente: kit.nombre || '—', dni: kit.dni || '—', origen: 'Revisión y asignación → Contact Center' } }));
                                         }
                                         if (kitDevuelto && !p.devueltoPorContactCenter) {
-                                            const pt = patientsList.find(px => px.id === kit.patientId);
                                             const revAsig = norm(pt?.usuarioRevisionAsignacion);
                                             if (meta.isRevision && revAsig === meta.userName) {
                                                 window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'asignacion', paciente: kit.nombre || pt?.nombre || '—', dni: kit.dni || pt?.dni || '—', origen: 'Contact Center → Revisión y asignación' } }));
                                             }
                                         }
                                         if (kitFE && !(p.fechaEntregaKit || '').toString().trim()) {
-                                            if (meta.isCC && kitCC === meta.userName) {
+                                            if (meta.isCC && assignedCC === meta.userName) {
                                                 const donde = (kit.deliveryMode || '').toLowerCase() === 'ruta' ? 'Ruta' : 'Ventanilla';
                                                 window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'kit_entregado', paciente: kit.nombre || '—', dni: kit.dni || '—', origen: 'Entregado en ' + donde } }));
+                                            }
+                                        }
+                                        if (kitNoEnt && !prevNoEnt) {
+                                            if (meta.isCC && assignedCC === meta.userName) {
+                                                window.dispatchEvent(new CustomEvent('notify', { detail: { tipo: 'no_entregado', paciente: kit.nombre || pt?.nombre || '—', dni: kit.dni || pt?.dni || '—', origen: kit.observacionNoEntrega || kit.motivoNoLoLlevo || 'No entregado en ruta' } }));
                                             }
                                         }
                                         const kitRecetaImpresa = !!(kit.recetaImpresa === true || kit.recetaImpresa === 'true');
@@ -14955,7 +14960,13 @@ Responde en formato JSON con esta estructura:
                                         }
                                     });
                                 }
-                                prevKitsRef.current = Object.fromEntries(data.map(k => [k.id, { contactCenter: norm(k.contactCenter), devueltoPorContactCenter: !!k.devueltoPorContactCenter, fechaEntregaKit: (k.fechaEntregaKit || '').toString().trim(), recetaImpresa: k.recetaImpresa }]));
+                                prevKitsRef.current = Object.fromEntries(data.map(k => [k.id, {
+                                    contactCenter: norm(k.contactCenter),
+                                    devueltoPorContactCenter: !!k.devueltoPorContactCenter,
+                                    fechaEntregaKit: (k.fechaEntregaKit || '').toString().trim(),
+                                    recetaImpresa: k.recetaImpresa,
+                                    noEntregado: !!((k.resultadoEntrega === 'no_entregado') || (k.estadoRuta === 'no_entregado') || (k.confirmacionManana === 'no_lo_llevo'))
+                                }]));
                                 setKits(data);
                                 cacheManager.saveKits(data);
                             },
@@ -15421,7 +15432,7 @@ Responde en formato JSON con esta estructura:
             useEffect(() => {
                 if (!showNotifications) return;
                 const playSound = (tipo) => {
-                    const src = tipo === 'kit_entregado' ? './alertaentrega.mp3' : tipo === 'kit_impreso_despacho' ? './alertadespacho.mp3' : './alertadash.mp3';
+                    const src = tipo === 'kit_entregado' ? './alertaentrega.mp3' : tipo === 'kit_impreso_despacho' ? './alertadespacho.mp3' : tipo === 'no_entregado' ? './devolucion.mp3' : './alertadash.mp3';
                     try { const a = new Audio(src); a.volume = 1; a.play().catch(() => {}); } catch (_) {}
                 };
                 const handler = (e) => {
@@ -15433,6 +15444,7 @@ Responde en formato JSON con esta estructura:
                     setFloatingNotifications(prev => [...prev, n]);
                     setTimeout(() => setFloatingNotifications(prev => prev.filter(x => x.id !== n.id)), 30000);
                     if (tipo === 'kit_entregado') playSound('kit_entregado');
+                    else if (tipo === 'no_entregado') playSound('no_entregado');
                     else if (tipo === 'kit_impreso_despacho' && !despachoSoundDisabled) playSound('kit_impreso_despacho');
                     else if (d.skipSound !== true) playSound('asignacion');
                 };
@@ -15651,9 +15663,9 @@ Responde en formato JSON con esta estructura:
                                                 {notificationsToday.length === 0 ? (
                                                     <p className="text-sm text-slate-400 py-6 text-center">Sin notificaciones hoy</p>
                                                 ) : notificationsToday.map(n => (
-                                                    <div key={n.id} className={`p-3 mb-2 rounded-xl border text-sm ${n.tipo === 'kit_entregado' ? 'bg-emerald-50 border-emerald-200' : n.tipo === 'kit_impreso_despacho' ? 'bg-violet-50 border-violet-200' : n.tipo === 'asignacion' ? 'bg-indigo-50 border-indigo-100' : n.tipo === 'asignacion_admin' ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'}`}>
-                                                        <div className={`font-bold ${n.tipo === 'kit_entregado' ? 'text-emerald-800' : n.tipo === 'kit_impreso_despacho' ? 'text-violet-800' : n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
-                                                            {n.tipo === 'kit_entregado' ? 'Kit entregado' : n.tipo === 'kit_impreso_despacho' ? 'Kit impreso — Lista Despacho' : n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
+                                                    <div key={n.id} className={`p-3 mb-2 rounded-xl border text-sm ${n.tipo === 'kit_entregado' ? 'bg-emerald-50 border-emerald-200' : n.tipo === 'no_entregado' ? 'bg-red-50 border-red-200' : n.tipo === 'kit_impreso_despacho' ? 'bg-violet-50 border-violet-200' : n.tipo === 'asignacion' ? 'bg-indigo-50 border-indigo-100' : n.tipo === 'asignacion_admin' ? 'bg-amber-50 border-amber-100' : 'bg-green-50 border-green-100'}`}>
+                                                        <div className={`font-bold ${n.tipo === 'kit_entregado' ? 'text-emerald-800' : n.tipo === 'no_entregado' ? 'text-red-800' : n.tipo === 'kit_impreso_despacho' ? 'text-violet-800' : n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
+                                                            {n.tipo === 'kit_entregado' ? 'Kit entregado' : n.tipo === 'no_entregado' ? 'No entregado en ruta' : n.tipo === 'kit_impreso_despacho' ? 'Kit impreso — Lista Despacho' : n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
                                                         </div>
                                                         <div className="text-slate-600">{n.paciente} — {n.dni}</div>
                                                         {n.origen && <div className="text-xs text-slate-500">{n.origen}</div>}
@@ -15665,9 +15677,9 @@ Responde en formato JSON con esta estructura:
                                 </div>
                                 <div className="fixed bottom-4 right-4 z-[64] flex flex-col gap-2 max-w-[340px] pointer-events-none">
                                     {floatingNotifications.map(n => (
-                                        <div key={n.id} className={`pointer-events-auto p-4 bg-white rounded-2xl shadow-xl border-l-4 animate-in ${n.tipo === 'kit_entregado' ? 'border-emerald-500' : n.tipo === 'kit_impreso_despacho' ? 'border-violet-500' : n.tipo === 'asignacion' ? 'border-indigo-500' : n.tipo === 'asignacion_admin' ? 'border-amber-500' : 'border-green-500'}`}>
-                                            <div className={`font-bold text-sm ${n.tipo === 'kit_entregado' ? 'text-emerald-800' : n.tipo === 'kit_impreso_despacho' ? 'text-violet-800' : n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
-                                                {n.tipo === 'kit_entregado' ? 'Kit entregado' : n.tipo === 'kit_impreso_despacho' ? 'Kit impreso — Lista Despacho' : n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
+                                        <div key={n.id} className={`pointer-events-auto p-4 bg-white rounded-2xl shadow-xl border-l-4 animate-in ${n.tipo === 'kit_entregado' ? 'border-emerald-500' : n.tipo === 'no_entregado' ? 'border-red-500' : n.tipo === 'kit_impreso_despacho' ? 'border-violet-500' : n.tipo === 'asignacion' ? 'border-indigo-500' : n.tipo === 'asignacion_admin' ? 'border-amber-500' : 'border-green-500'}`}>
+                                            <div className={`font-bold text-sm ${n.tipo === 'kit_entregado' ? 'text-emerald-800' : n.tipo === 'no_entregado' ? 'text-red-800' : n.tipo === 'kit_impreso_despacho' ? 'text-violet-800' : n.tipo === 'asignacion' ? 'text-indigo-800' : n.tipo === 'asignacion_admin' ? 'text-amber-800' : 'text-green-800'}`}>
+                                                {n.tipo === 'kit_entregado' ? 'Kit entregado' : n.tipo === 'no_entregado' ? 'No entregado en ruta' : n.tipo === 'kit_impreso_despacho' ? 'Kit impreso — Lista Despacho' : n.tipo === 'asignacion' ? 'Nueva asignación' : n.tipo === 'asignacion_admin' ? 'Asignación admin' : 'Ya renovó recetas'}
                                             </div>
                                             <div className="text-slate-600 text-sm">{n.paciente} — {n.dni}</div>
                                             {n.origen && <div className="text-xs text-slate-500">{n.origen}</div>}
